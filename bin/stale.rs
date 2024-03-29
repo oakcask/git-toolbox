@@ -121,7 +121,7 @@ impl Command {
 
 impl Cli {
     fn to_command(self) -> Result<Command, Box<dyn Error>> {
-        let repo = Repository::open(".")?;
+        let repo = Repository::open_from_env()?;
         let now = Local::now();
         let since = self.since.map(|s| now - s);
 
