@@ -17,6 +17,20 @@ Options:
   -h, --help           Print help
 ```
 
+## git-whose
+
+```
+find GitHub CODEOWNERS for path(s)
+
+Usage: git-whose [PATHS]...
+
+Arguments:
+  [PATHS]...  
+
+Options:
+  -h, --help  Print help
+```
+
 ### Relative Date Format
 
 Some option in `git-stale` accepts relative date.

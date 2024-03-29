@@ -16,3 +16,7 @@ thiserror = "1.0.58"
 [[bin]]
 name = "git-stale"
 path = "bin/stale.rs"
+
+[[bin]]
+name = "git-whose"
+path = "bin/whose.rs"
