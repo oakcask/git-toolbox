@@ -7,14 +7,14 @@ pub enum IndexStage {
     Theirs,
 }
 
-impl Into<i32> for IndexStage {
-    fn into(self) -> i32 {
-        match self {
-            Self::Any => -1,
-            Self::Normal => 0,
-            Self::Anscestor => 1,
-            Self::Ours => 2,
-            Self::Theirs => 3
+impl From<IndexStage> for i32 {
+    fn from(val: IndexStage) -> Self {
+        match val {
+            IndexStage::Any => -1,
+            IndexStage::Normal => 0,
+            IndexStage::Anscestor => 1,
+            IndexStage::Ours => 2,
+            IndexStage::Theirs => 3
         }
     }
 }
