@@ -85,7 +85,7 @@ impl<Tz: TimeZone> Sub<Reltime> for DateTime<Tz> {
     fn sub(self, rhs: Reltime) -> Self::Output {
         self.checked_sub_months(rhs.months)
             .unwrap()
-            .checked_sub_days(rhs.days.into())
+            .checked_sub_days(rhs.days)
             .unwrap()
     }
 }

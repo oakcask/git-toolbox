@@ -114,7 +114,7 @@ impl CodeOwners {
             // Forgetting errors in parsing is reasonable the repository barely contains invalid code owner records,
             // as GitHub enforces CODEOWNERS file being valid.
             // (and we are reading CODEOWNERS from index)
-            let mut entries: Vec<CodeOwnersEntry> = blob.content().lines().enumerate().map(|(idx, ln)| {
+            let mut entries: Vec<CodeOwnersEntry> = blob.content().lines().enumerate().filter_map(|(idx, ln)| {
                 match ln {
                     Ok(s) => {
                         match Record::try_from(s) {
@@ -140,7 +140,7 @@ impl CodeOwners {
                         None
                     }
                 }
-            }).filter(|r| r.is_some()).map(|r| r.unwrap()).collect();
+            }).collect();
             entries.reverse();
 
             Ok(CodeOwners { entries })
@@ -154,6 +154,6 @@ impl CodeOwners {
             entry.pattern.is_match(path)
         });
 
-        entry.and_then(|entry| Some(&entry.owners))
+        entry.map(|entry| &entry.owners)
     }
 }

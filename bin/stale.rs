@@ -1,9 +1,9 @@
-use std::error::Error;
+use std::{error::Error, process::exit};
 use chrono::{DateTime, Local};
 use clap::{arg, Parser};
 use git2::{Branch, BranchType, PushOptions, RemoteCallbacks, Repository};
 use git_toolbox::{gittime::GitTime, reltime::Reltime};
-use log::{info, warn};
+use log::{error, info, warn};
 
 #[derive(Parser)]
 #[command(
@@ -25,7 +25,7 @@ struct Cli {
 }
 
 fn parse_reltime(arg: &str) -> Result<Reltime, String> {
-    Reltime::try_from(arg).map_err(|e| format!("while parsing {} got error: {}", arg, e.to_string()))
+    Reltime::try_from(arg).map_err(|e| format!("while parsing {} got error: {}", arg, e))
 }
 
 struct Command {
@@ -52,7 +52,7 @@ impl Command {
                 if s > commit_time.into() {
                     self.process(branch)?;
                 }
-            } else if let Err(_) = branch.upstream() {
+            } else if branch.upstream().is_err() {
                 self.process(branch)?;
             }
         }
@@ -67,27 +67,25 @@ impl Command {
                 if branch.is_head() {
                     info!("branch '{}' ignored. NOTE: HEAD branch is always ignored.", branch_name);
                     Ok(false)
+                } else if self.branches.is_empty() {
+                    Ok(true)
                 } else {
-                    if self.branches.is_empty() {
-                        Ok(true)
-                    } else {
-                        match self.branches.iter().find(|&prefix| branch_name.starts_with(prefix)) {
-                            Some(_) => Ok(true),
-                            None => Ok(false)
-                        }
+                    match self.branches.iter().find(|&prefix| branch_name.starts_with(prefix)) {
+                        Some(_) => Ok(true),
+                        None => Ok(false)
                     }
                 }
             }
         }
     }
     
-    fn process<'a>(&self, branch: Branch<'a>) -> Result<(), Box<dyn Error>> {
+    fn process(&self, branch: Branch<'_>) -> Result<(), Box<dyn Error>> {
         if self.delete && self.push {
             let upstream = branch.upstream()?;
             let upstream = upstream.get();
             let upstream = upstream.name()
                 .and_then(|u| u.strip_prefix("refs/remotes/"))
-                .and_then(|u| u.split('/').into_iter().next());
+                .and_then(|u| u.split('/').next());
             let branch_name = branch.get().name();
 
             if let (Some(remote), Some(branch_name)) = (upstream, branch_name) {
@@ -135,7 +133,15 @@ impl Cli {
     }  
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> ! {
     env_logger::init();
-    Cli::parse().to_command()?.run()
+    match Cli::parse().to_command().and_then(|cmd| cmd.run()) {
+        Err(e) => {
+            error!("{}", e.to_string());
+            exit(1)
+        }
+        Ok(_) => {
+            exit(0)
+        }
+    }
 }
