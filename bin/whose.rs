@@ -14,7 +14,7 @@ struct Cli {
 }
 
 struct Command {
-    repo: Repository,
+    _repo: Repository,
     codeowners: CodeOwners,
     paths: Vec<String>
 }
@@ -36,7 +36,7 @@ impl Cli {
 
 
         Ok(Command {
-            repo,
+            _repo: repo,
             codeowners,
             paths: self.paths
         })
