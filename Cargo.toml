@@ -2,6 +2,8 @@
 name = "git-toolbox"
 version = "1.0.0"
 edition = "2021"
+homepage = "https://github.com/oakcask/git-toolbox"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 chrono = "0.4.37"
