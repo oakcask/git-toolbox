@@ -1,0 +1,93 @@
+name: Release
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      # to develop or debug this workflow
+      - .github/workflows/release.yaml
+
+jobs:
+  get-next-version:
+    permissions:
+      contents: write
+    uses: semantic-release-action/next-release-version/.github/workflows/next-release-version.yml@v4
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo test
+
+  build:
+    strategy:
+        matrix:
+          build:
+            - os: ubuntu-latest
+              target: x86_64-unknown-linux-gnu
+              cross: false
+    runs-on: ${{ matrix.build.os }}
+    needs:
+      - get-next-version
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    env:
+      CARGO: "cargo"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install semantic-release-cargo
+        if: needs.get-next-version.outputs.new-release-published == 'true'
+        uses: EricCrosson/install-github-release-binary@v2
+        with:
+          targets: semantic-release-cargo/semantic-release-cargo@v2.2.96
+      - name: Prepare semantic-release for Rust
+        if: needs.get-next-version.outputs.new-release-published == 'true'
+        run: semantic-release-cargo prepare ${{ needs.get-next-version.outputs.new-release-version }}
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - run: Cargo install cross if needed
+        if: matrix.build.corss
+      - name: Enable cross if needed
+        run: echo "CARGO=cross" >> "$GITHUB_ENV"
+        if: matrix.build.cross
+      - run: ${{ env.CARGO }} build --release --target=${{ matrix.build.target }} --bins
+
+      - name: Prepare artifacts to upload
+        run: |
+          mkdir -p dist/${{ matrix.build.target }}
+          find target/${{ matrix.build.target }}/release -maxdepth 1 \
+            -type f \! -name '.cargo-lock' \! -name '*.d' -print0 \
+            | xargs -I{} -r -0 cp {} dist/${{ matrix.build.target }}/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.build.target }}
+          path: |
+            dist/${{ matrix.build.target }}
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs:
+      - get-next-version
+      - test
+      - build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Show artifacts
+        run: find dist
+
+      - uses: cycjimmy/semantic-release-action@v4
+        with:
+          dry_run: ${{ github.ref != 'refs/heads/main' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
