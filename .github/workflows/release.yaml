@@ -7,6 +7,7 @@ on:
     paths:
       # to develop or debug this workflow
       - .github/workflows/release.yaml
+      - .releaserc.yaml
 
 jobs:
   get-next-version:
