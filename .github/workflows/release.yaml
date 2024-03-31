@@ -74,6 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     needs:
       - get-next-version
       - test
