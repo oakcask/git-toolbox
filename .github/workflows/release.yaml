@@ -32,6 +32,7 @@ jobs:
     runs-on: ${{ matrix.build.os }}
     permissions:
       contents: write
+      pull-requests: write
     needs:
       - get-next-version
     concurrency:
@@ -49,10 +50,13 @@ jobs:
       - name: Prepare semantic-release for Rust
         run: semantic-release-cargo prepare ${{ needs.get-next-version.outputs.new-release-version }}
         if: needs.get-next-version.outputs.new-release-published == 'true'
-      - uses: int128/update-generated-files-action@v2
+      - name: Create pull request to release
+        uses: int128/update-generated-files-action@v2
         if: needs.get-next-version.outputs.new-release-published == 'true'
         with:
-          commit-message: "chore: update version number for release"
+          title: Release v${{ needs.get-next-version.outputs.new-release-version }}
+          body: Releases v${{ needs.get-next-version.outputs.new-release-version }}
+          commit-message: "chore: release v${{ needs.get-next-version.outputs.new-release-version }}"
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
