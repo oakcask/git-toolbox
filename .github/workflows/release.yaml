@@ -39,13 +39,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install semantic-release-cargo
-        if: needs.get-next-version.outputs.new-release-published == 'true'
         uses: EricCrosson/install-github-release-binary@v2
         with:
           targets: semantic-release-cargo/semantic-release-cargo@v2.2.96
-      - name: Prepare semantic-release for Rust
         if: needs.get-next-version.outputs.new-release-published == 'true'
+      - name: Prepare semantic-release for Rust
         run: semantic-release-cargo prepare ${{ needs.get-next-version.outputs.new-release-version }}
+        if: needs.get-next-version.outputs.new-release-published == 'true'
+      - uses: int128/update-generated-files-action@v2
+        if: needs.get-next-version.outputs.new-release-published == 'true'
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
 
