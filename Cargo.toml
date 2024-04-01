@@ -5,6 +5,14 @@ edition = "2021"
 homepage = "https://github.com/oakcask/git-toolbox"
 license = "MIT OR Apache-2.0"
 
+[[bin]]
+name = "git-stale"
+path = "bin/stale.rs"
+
+[[bin]]
+name = "git-whose"
+path = "bin/whose.rs"
+
 [dependencies]
 chrono = "0.4.37"
 clap = { version = "4.5.4", features = ["derive"] }
@@ -15,10 +23,5 @@ once_cell = "1.19.0"
 regex = "1.10.4"
 thiserror = "1.0.58"
 
-[[bin]]
-name = "git-stale"
-path = "bin/stale.rs"
-
-[[bin]]
-name = "git-whose"
-path = "bin/whose.rs"
+[dev-dependencies]
+tempfile = "3.10.1"
