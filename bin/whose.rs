@@ -17,7 +17,7 @@ struct Cli {
 enum CliError {
     #[error("{0}")]
     PathError(&'static str),
-    #[error("current working directory is out side of repository")]
+    #[error("path points to the out side of repository")]
     OutSideOfRepo
 }
 
@@ -60,7 +60,7 @@ impl Cli {
         let mut workdir_paths = Vec::new();
         for path in paths {
             let path = Path::new(&path);
-            let abs_path = Self::normalize_path(&env::current_dir()?.join(path), repo_root, path)?;
+            let abs_path = Self::normalize_path(&env::current_dir()?, repo_root, path)?;
             workdir_paths.push(abs_path)
         }
         Ok(workdir_paths)
