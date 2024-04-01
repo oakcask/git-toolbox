@@ -30,7 +30,14 @@ struct Command {
 impl Command {
     fn run(&self) -> Result<(), Box<dyn Error>> {
         for path in self.paths.iter() {
-            println!("{}: {:?}", path, self.codeowners.find_owners(path));
+            match self.codeowners.find_owners(path) {
+                Some(owners) => {
+                    println!("{}: {}", path, owners.join(", "));
+                }
+                None => {
+                    println!("{}:", path);
+                }
+            }
         }
 
         Ok(())
