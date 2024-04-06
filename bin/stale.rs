@@ -1,4 +1,4 @@
-use std::{error::Error, process::exit};
+use std::{collections::HashMap, error::Error, process::exit};
 use chrono::{DateTime, Local};
 use clap::{arg, Parser};
 use git2::{Branch, BranchType, PushOptions, RemoteCallbacks, Repository};
@@ -39,6 +39,68 @@ struct Command {
 
 impl Command {
     fn run(&self) -> Result<(), Box<dyn Error>> {
+        if self.delete && self.push {
+            let refspecs: HashMap<String, Vec<String>> = HashMap::new();
+            let mut refspecs = self.for_each(refspecs,|mut refspecs, branch| {
+                let upstream = branch.upstream()?;
+                let upstream = upstream.get();
+                let upstream = upstream.name()
+                    .and_then(|u| u.strip_prefix("refs/remotes/"))
+                    .and_then(|u| u.split('/').next());
+                let branch_name = branch.get().name();
+
+                if let (Some(remote_name), Some(branch_name)) = (upstream, branch_name) {
+                    info!("branch '{}' will be deleted from {}", branch_name, remote_name);
+                    
+                    // refspec has <src>:<dst> format, so leaving <src> empty will delete <dst>.
+                    let refspec = format!(":{}", branch_name);
+                    if let Some(branches) = refspecs.get_mut(remote_name) {
+                        branches.push(refspec)
+                    } else {
+                        refspecs.insert(remote_name.to_owned(), vec![refspec]);                 
+                    }
+                }
+
+                Ok(refspecs)
+            })?;
+            for (remote_name, refspecs) in refspecs.drain() {
+                let mut remote = self.repo.find_remote(&remote_name)?;
+                let mut callbacks = RemoteCallbacks::new();
+                callbacks.push_update_reference(|refname, status| {
+                    if let Some(error) = status {
+                        warn!("push failed: {}, status = {}", refname, error);
+                    } else {
+                        info!("pushed: {}", refname);
+                    }
+                    Ok(())
+                });
+                let mut push_options = PushOptions::new();
+                push_options.remote_callbacks(callbacks);
+                if let Err(e) = remote.push(refspecs.as_slice(), Some(&mut push_options)) {
+                    warn!("failed to remove branches from {}: {}", remote_name, e)
+                }
+            }
+        } else if self.delete {
+            self.for_each((), |_, mut branch| {
+                if let Some(branch_name) = branch.get().name() {
+                    let branch_name = branch_name.to_owned();
+                    if let Err(e) = branch.delete() {
+                        warn!("failed to remove branch '{}': {}", branch_name, e)
+                    }
+                }
+                Ok(())
+            })?;
+        } else {
+            self.for_each((), |_, branch| {
+                println!("{}", branch.get().name().unwrap());
+                Ok(())
+            })?;
+        }
+        Ok(())
+    }
+
+    fn for_each<S, F: Fn(S, Branch<'_>) -> Result<S, Box<dyn Error>>>(&self, init: S, f: F) -> Result<S, Box<dyn Error>> {
+        let mut st = init;
         for branch in self.repo.branches(Some(BranchType::Local))? {
             let (branch, _) = branch?;
             if !self.match_branch(&branch)? {
@@ -50,14 +112,14 @@ impl Command {
 
             if let Some(s) = self.since {
                 if s > commit_time.into() {
-                    self.process(branch)?;
+                    st = f(st, branch)?;
                 }
             } else if branch.upstream().is_err() {
-                self.process(branch)?;
+                st = f(st, branch)?;
             }
         }
 
-        Ok(())
+        Ok(st)
     }
 
     fn match_branch(&self, branch: &Branch) -> Result<bool, Box<dyn Error>> {
@@ -78,43 +140,6 @@ impl Command {
             }
         }
     }
-    
-    fn process(&self, branch: Branch<'_>) -> Result<(), Box<dyn Error>> {
-        if self.delete && self.push {
-            let upstream = branch.upstream()?;
-            let upstream = upstream.get();
-            let upstream = upstream.name()
-                .and_then(|u| u.strip_prefix("refs/remotes/"))
-                .and_then(|u| u.split('/').next());
-            let branch_name = branch.get().name();
-
-            if let (Some(remote), Some(branch_name)) = (upstream, branch_name) {
-                info!("branch '{}' will be deleted from {}", branch_name, remote);
-
-                // refspec has <src>:<dst> format, so leaving <src> empty will delete <dst>.
-                let refspec = format!(":{}", branch_name);
-                let mut remote = self.repo.find_remote(remote)?;
-                let mut callbacks = RemoteCallbacks::new();
-                callbacks.push_update_reference(|refname, status| {
-                    if let Some(error) = status {
-                        warn!("push failed: {}, status = {}", refname, error);
-                    }
-                    Ok(())
-                });
-                let mut push_options = PushOptions::new();
-                push_options.remote_callbacks(callbacks);
-
-                remote.push(&[refspec], Some(&mut push_options))?;
-            }
-        } else if self.delete {
-            let mut branch = branch;
-            branch.delete()?;
-        } else {
-            println!("{}", branch.get().name().unwrap());
-        }
-
-        Ok(())
-    } 
 }
 
 impl Cli {
