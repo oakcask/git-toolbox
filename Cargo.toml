@@ -14,7 +14,7 @@ name = "git-whose"
 path = "bin/whose.rs"
 
 [dependencies]
-chrono = "0.4.37"
+chrono = "0.4.38"
 clap = { version = "4.5.4", features = ["derive"] }
 env_logger = "0.11.3"
 git2 = "0.18.3"
