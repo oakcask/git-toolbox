@@ -55,6 +55,9 @@ jobs:
             - os: ubuntu-latest
               target: x86_64-unknown-linux-gnu
               cross: false
+            - os: ubuntu-latest
+              target: aarch64-unknown-linux-gnu
+              cross: true
     runs-on: ${{ matrix.build.os }}
     needs:
       - update-version
@@ -65,14 +68,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-
-      - run: Cargo install cross if needed
-        if: matrix.build.corss
-      - name: Enable cross if needed
-        run: echo "CARGO=cross" >> "$GITHUB_ENV"
+      - name: Enable cross
+        run: cargo install cross && echo "CARGO=cross" >> "$GITHUB_ENV"
         if: matrix.build.cross
       - run: ${{ env.CARGO }} build --release --target=${{ matrix.build.target }} --bins
-
       - name: Prepare artifacts to upload
         run: |
           mkdir -p dist/${{ matrix.build.target }}
