@@ -1,0 +1,41 @@
+name: Create Release Pull Request
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      # to develop or debug this workflow
+      - .github/workflows/create-release-pr.yaml
+      - .releaserc.yaml
+
+jobs:
+  get-next-version:
+    permissions:
+      contents: write
+    uses: semantic-release-action/next-release-version/.github/workflows/next-release-version.yml@v4
+
+  update-version:
+    runs-on: ubuntu-latest
+    needs:
+      - get-next-version
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install semantic-release-cargo
+        uses: EricCrosson/install-github-release-binary@v2
+        with:
+          targets: semantic-release-cargo/semantic-release-cargo@v2.2.96
+        if: needs.get-next-version.outputs.new-release-published == 'true'
+      - name: Prepare semantic-release for Rust
+        run: semantic-release-cargo prepare ${{ needs.get-next-version.outputs.new-release-version }}
+        if: needs.get-next-version.outputs.new-release-published == 'true'
+      - name: Create pull request to release
+        uses: int128/update-generated-files-action@v2
+        if: needs.get-next-version.outputs.new-release-published == 'true'
+        with:
+          title: Release v${{ needs.get-next-version.outputs.new-release-version }}
+          body: Releases v${{ needs.get-next-version.outputs.new-release-version }}
+          commit-message: "chore: release v${{ needs.get-next-version.outputs.new-release-version }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
