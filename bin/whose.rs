@@ -10,19 +10,19 @@ use log::error;
     long_about = None)]
 struct Cli {
     #[arg()]
-    paths: Vec<String>
+    pathspecs: Vec<String>
 }
 
 struct Command {
     repo: Repository,
     codeowners: CodeOwners,
-    paths: Vec<String>,
+    pathspecs: Vec<String>,
 }
 
 impl Command {
     fn run(&self) -> Result<(), Box<dyn Error>> {
         let index = self.repo.index()?;
-        let pathspec = Pathspec::new(self.paths.iter())?;
+        let pathspec = Pathspec::new(self.pathspecs.iter())?;
         let matches = pathspec.match_index(&index, PathspecFlags::default())?;
 
         for entry in matches.entries() {
@@ -49,10 +49,10 @@ impl Command {
 impl Cli {
     fn to_command(self) -> Result<Command, Box<dyn Error>> {
         let repo = Repository::open_from_env()?;
-        let paths = if repo.is_bare() {
-            self.paths
+        let pathspecs = if repo.is_bare() {
+            self.pathspecs
         } else {
-            pathname::normalize_paths(&repo, self.paths)?
+            pathname::normalize_paths(&repo, self.pathspecs)?
         };
 
         let codeowners = CodeOwners::new(&repo)?;
@@ -60,7 +60,7 @@ impl Cli {
         Ok(Command {
             repo,
             codeowners,
-            paths
+            pathspecs
         })
     }
 }
