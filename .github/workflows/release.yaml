@@ -10,6 +10,28 @@ on:
       - .releaserc.yaml
 
 jobs:
+  get-next-version:
+    permissions:
+      contents: write
+    uses: semantic-release-action/next-release-version/.github/workflows/next-release-version.yml@v4
+
+  cargo-toml-updated:
+    runs-on: ubuntu-latest
+    needs:
+      - get-next-version
+    outputs:
+      updated: ${{ steps.check-updated.outputs.updated }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EricCrosson/install-github-release-binary@v2
+        with:
+          targets: semantic-release-cargo/semantic-release-cargo@v2.2.96
+        if: needs.get-next-version.outputs.new-release-published == 'true'
+      - run: semantic-release-cargo prepare ${{ needs.get-next-version.outputs.new-release-version }}
+        if: needs.get-next-version.outputs.new-release-published == 'true'
+      - id: check-updated
+        run: git diff --exit-code && echo "updated=true" >> "$GITHUB_OUTPUT"
+
   build:
     strategy:
         matrix:
@@ -21,8 +43,10 @@ jobs:
               target: aarch64-unknown-linux-gnu
               cross: true
     runs-on: ${{ matrix.build.os }}
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
+    needs:
+      - get-next-version
+      - cargo-toml-updated
+    if: always() && ${{ needs.get-next-version.outputs.new-release-published == 'true'}} && ${{ needs.cargo-toml-updated.outputs.updated == 'true' }}
     env:
       CARGO: "cargo"
     steps:
@@ -56,7 +80,10 @@ jobs:
       issues: write
       pull-requests: write
     needs:
+      - get-next-version
+      - cargo-toml-updated
       - build
+    if: always() && ${{ needs.get-next-version.outputs.new-release-published == 'true'}} && ${{ needs.cargo-toml-updated.outputs.updated == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
