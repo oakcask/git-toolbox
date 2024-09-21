@@ -1,6 +1,6 @@
-use std::{error::Error, process::exit};
+use std::{error::Error, ffi::OsStr, os::unix::ffi::OsStrExt as _, process::exit};
 use clap::Parser;
-use git2::Repository;
+use git2::{Pathspec, PathspecFlags, Repository};
 use git_toolbox::{github::codeowners::CodeOwners, pathname};
 use log::error;
 
@@ -14,22 +14,32 @@ struct Cli {
 }
 
 struct Command {
-    _repo: Repository,
+    repo: Repository,
     codeowners: CodeOwners,
     paths: Vec<String>,
 }
 
 impl Command {
     fn run(&self) -> Result<(), Box<dyn Error>> {
-        for path in self.paths.iter() {
-            match self.codeowners.find_owners(path) {
-                Some(owners) => {
-                    println!("{}: {}", path, owners.join(", "));
+        let index = self.repo.index()?;
+        let pathspec = Pathspec::new(self.paths.iter())?;
+        let matches = pathspec.match_index(&index, PathspecFlags::default())?;
+
+        for entry in matches.entries() {
+            let path = OsStr::from_bytes(entry);
+            if let Some(path) = OsStr::from_bytes(entry).to_str() {
+                match self.codeowners.find_owners(path) {
+                    Some(owners) => {
+                        println!("{}: {}", path, owners.join(", "));
+                    }
+                    None => {
+                        println!("{}:", path);
+                    }
                 }
-                None => {
-                    println!("{}:", path);
-                }
+            } else {
+                log::error!("cannot convet {:?} into utf-8 string.", path)
             }
+
         }
 
         Ok(())
@@ -48,7 +58,7 @@ impl Cli {
         let codeowners = CodeOwners::new(&repo)?;
 
         Ok(Command {
-            _repo: repo,
+            repo,
             codeowners,
             paths
         })
