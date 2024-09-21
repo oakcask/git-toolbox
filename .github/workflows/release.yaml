@@ -31,6 +31,8 @@ jobs:
         if: needs.get-next-version.outputs.new-release-published == 'true'
       - id: check-updated
         run: git diff --exit-code && echo "updated=true" >> "$GITHUB_OUTPUT"
+        # wanted not to workflow status being failure. 
+        continue-on-error: true
 
   build:
     strategy:
