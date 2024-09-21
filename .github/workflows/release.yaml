@@ -48,7 +48,7 @@ jobs:
     needs:
       - get-next-version
       - cargo-toml-updated
-    if: always() && ${{ needs.get-next-version.outputs.new-release-published == 'true'}} && ${{ needs.cargo-toml-updated.outputs.updated == 'true' }}
+    if: ${{ needs.get-next-version.outputs.new-release-published == 'true' && needs.cargo-toml-updated.outputs.updated == 'true' }}
     env:
       CARGO: "cargo"
     steps:
@@ -85,7 +85,7 @@ jobs:
       - get-next-version
       - cargo-toml-updated
       - build
-    if: always() && ${{ needs.get-next-version.outputs.new-release-published == 'true'}} && ${{ needs.cargo-toml-updated.outputs.updated == 'true' }}
+    if: ${{ needs.get-next-version.outputs.new-release-published == 'true' && needs.cargo-toml-updated.outputs.updated == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
