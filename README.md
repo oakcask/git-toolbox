@@ -1,6 +1,22 @@
 # git-toolbox: shorthands for git operation
 
-## git-stale
+## Installation
+
+If you have `cargo`, run following command:
+
+```
+cargo install --git https://github.com/oakcask/git-toolbox.git
+```
+
+Or, download pre-built binary:
+
+```
+curl -sSL https://github.com/oakcask/git-toolbox/releases/download/v2.0.0/aarch64-unknown-linux-gnu.tar.gz | tar zx -C /path/to/bin
+```
+
+## Usage
+
+### git-stale
 
 ```
 List or delete stale branches
@@ -17,7 +33,7 @@ Options:
   -h, --help           Print help
 ```
 
-## git-whose
+### git-whose
 
 ```
 find GitHub CODEOWNERS for path(s)
