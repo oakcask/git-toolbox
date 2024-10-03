@@ -55,7 +55,7 @@ impl Cli {
             pathname::normalize_paths(&repo, self.pathspecs)?
         };
 
-        let codeowners = CodeOwners::new(&repo)?;
+        let codeowners = CodeOwners::try_from_repo(&repo)?;
 
         Ok(Command {
             repo,

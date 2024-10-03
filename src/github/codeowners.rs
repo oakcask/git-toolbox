@@ -104,51 +104,70 @@ pub enum CodeOwnersError {
 }
 
 impl CodeOwners {
-    pub fn new(repo: &Repository) -> Result<CodeOwners, CodeOwnersError> {
-        let path = Path::new(".github/CODEOWNERS");
-        let index =  repo.index()?;
-
-        if let Some(entry) = index.get_path(path, IndexStage::Normal.into()) {
-            let blob = repo.find_object(entry.id, Some(git2::ObjectType::Blob))?.into_blob().unwrap();
-
-            // Forgetting errors in parsing is reasonable the repository barely contains invalid code owner records,
-            // as GitHub enforces CODEOWNERS file being valid.
-            // (and we are reading CODEOWNERS from index)
-            let mut entries: Vec<CodeOwnersEntry> = blob.content().lines().enumerate().filter_map(|(idx, ln)| {
-                match ln {
-                    Ok(s) => {
-                        match Record::try_from(s) {
-                            Ok(r) => {
-                                match CodeOwnersEntry::try_from(r) {
-                                    Ok(entry) => {
-                                        Some(entry)
-                                    },
-                                    Err(e) => {
-                                        warn!("line {} at CODEOWNERS: {}", idx + 1, e);
-                                        None
-                                    }
+    /// Parse CODEOWNERS file data in buffer.
+    /// 
+    /// Examples
+    /// 
+    /// ```
+    /// use git_toolbox::github::codeowners::CodeOwners;
+    /// 
+    /// let data = r#"
+    /// *.js frontend-developer
+    /// "#;
+    /// let codeowners = CodeOwners::try_from_bufread(data.as_bytes()).unwrap();
+    /// 
+    /// assert_eq!(codeowners.find_owners("foo.ts"), None);
+    /// assert_eq!(codeowners.find_owners("foo/bar.js"), Some(&vec![String::from("frontend-developer")]));
+    /// ```
+    pub fn try_from_bufread<T: BufRead>(blob: T) -> Result<CodeOwners, CodeOwnersError> {
+        // Forgetting errors in parsing is reasonable the repository barely contains invalid code owner records,
+        // as GitHub enforces CODEOWNERS file being valid.
+        // (and we are reading CODEOWNERS from index)
+        let mut entries: Vec<CodeOwnersEntry> = blob.lines().enumerate().filter_map(|(idx, ln)| {
+            match ln {
+                Ok(s) => {
+                    match Record::try_from(s) {
+                        Ok(r) => {
+                            match CodeOwnersEntry::try_from(r) {
+                                Ok(entry) => {
+                                    Some(entry)
+                                },
+                                Err(e) => {
+                                    warn!("line {} at CODEOWNERS: {}", idx + 1, e);
+                                    None
                                 }
                             }
-                            Err(e) => {
-                                warn!("line {} at CODEOWNERS: {}", idx + 1, e);
-                                None                                
-                            }
+                        }
+                        Err(e) => {
+                            warn!("line {} at CODEOWNERS: {}", idx + 1, e);
+                            None                                
                         }
                     }
-                    Err(e) => {
-                        warn!("line {} at CODEOWNERS: {}", idx + 1, e);
-                        None
-                    }
                 }
-            }).collect();
-            entries.reverse();
+                Err(e) => {
+                    warn!("line {} at CODEOWNERS: {}", idx + 1, e);
+                    None
+                }
+            }
+        }).collect();
+        entries.reverse();
 
-            Ok(CodeOwners { entries })
+        Ok(CodeOwners { entries })
+    }
+
+    /// Read CODEOWNERS file from repository's index.
+    pub fn try_from_repo(repo: &Repository) -> Result<CodeOwners, CodeOwnersError> {
+        let path = Path::new(".github/CODEOWNERS");
+
+        if let Some(entry) = repo.index()?.get_path(path, IndexStage::Normal.into()) {
+            let blob = repo.find_object(entry.id, Some(git2::ObjectType::Blob))?.into_blob().unwrap();
+            Ok(Self::try_from_bufread(blob.content())?)
         } else {
             Err(CodeOwnersError::NotIndexed)
         }
     }
 
+    /// Find owners for matching path.
     pub fn find_owners(&self, path: &str) -> Option<&Vec<String>> {
         let entry = self.entries.iter().find(|&entry| {
             entry.pattern.is_match(path)
