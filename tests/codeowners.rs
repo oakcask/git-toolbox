@@ -29,7 +29,7 @@ baz/ baz-owner
 }
 
 #[test]
-fn codeowner_try_from_repo_generates_warnings_per_lines_without_pattern() {
+fn codeowner_try_from_repo_does_not_generate_warnings_for_lines_without_pattern() {
     let logger = test_logger();
     let tmpdir = TempDir::new().unwrap();
     let root = tmpdir.path();
@@ -52,18 +52,7 @@ baz/ baz-owner
     let co = CodeOwners::try_from_repo(&repo).unwrap();
     assert_eq!(
         logger.take(),
-        vec![
-            (
-                log::Level::Warn,
-                String::from("git_toolbox::github::codeowners"),
-                String::from("line 1 at CODEOWNERS: pattern missing")
-            ),
-            (
-                log::Level::Warn,
-                String::from("git_toolbox::github::codeowners"),
-                String::from("line 4 at CODEOWNERS: pattern missing")
-            ),
-        ]
+        vec![]
     );
 
     assert_eq!(
