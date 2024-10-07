@@ -17,7 +17,7 @@ pub enum PatternError {
 
 impl Pattern {
     pub fn new(pattern: String) -> Result<Pattern, PatternError> {
-        let pat = Self::compile(pattern)?;
+        let pat = Self::compile(&pattern)?;
         let re = Regex::new(&pat).map_err(|e| PatternError::CompileError(e.to_string()))?;
         Ok(Pattern { re })
     }
@@ -26,7 +26,7 @@ impl Pattern {
         self.re.is_match(path)
     }
 
-    fn compile(pattern: String) -> Result<String, PatternError> {
+    fn compile(pattern: &str) -> Result<String, PatternError> {
         enum State {
             Head(Vec<u8>),
             HeadAsterisk(Vec<u8>),
@@ -197,7 +197,7 @@ mod tests {
         ];
 
         for (idx, (input, want)) in test_case.into_iter().enumerate() {
-            let got = Pattern::compile(input.to_string());
+            let got = Pattern::compile(input);
             match (got, want) {
                 (Ok(pat_got), Ok(pat_want))  => {
                     assert_eq!(pat_got, pat_want.to_string(), "#{}: wants {} but got {}", idx, pat_want, pat_got);
