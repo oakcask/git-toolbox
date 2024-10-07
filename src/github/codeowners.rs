@@ -146,6 +146,9 @@ impl CodeOwners {
                         Ok(entry) => {
                             Some(entry)
                         },
+                        Err(CodeOwnersEntryError::PatternMissing) => {
+                            None
+                        }
                         Err(e) => {
                             warn!("line {} at CODEOWNERS: {}", idx + 1, e);
                             None
