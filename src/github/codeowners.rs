@@ -19,8 +19,14 @@ struct Record {
 enum CodeOwnersEntryError {
     #[error("pattern missing")]
     PatternMissing,
-    #[error("pattern error: {0}")]
-    PatternError(#[from] PatternError)
+    #[error("{0}")]
+    PatternError(String)
+}
+
+impl From<PatternError> for CodeOwnersEntryError {
+    fn from(value: PatternError) -> Self {
+        CodeOwnersEntryError::PatternError(value.to_string())
+    }
 }
 
 impl TryFrom<String> for Record {

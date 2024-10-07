@@ -9,8 +9,8 @@ pub struct Pattern {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum PatternError {
-    #[error("pattern is empty: {0}")]
-    Empty(String),
+    #[error("pattern is empty")]
+    Empty,
     #[error("pattern compilation failed")]
     CompileError(String),
 }
@@ -140,7 +140,7 @@ impl Pattern {
 
         match state {
             State::Head(_) => {
-                Err(PatternError::Empty(pattern))?
+                Err(PatternError::Empty)?
             }
             State::Default(mut re_buf, escape) => {
                 // add [/\z] to pattern and path for preventing partial match.
@@ -184,7 +184,7 @@ mod tests {
     fn test_compile() {
     
         let test_case = [
-            (r"", Err(PatternError::Empty("".to_string()))),
+            (r"", Err(PatternError::Empty)),
             (r"/foo", Ok(r"\Afoo(?:/|\z)")),
             (r"*", Ok(r"(?:\A|/)")),
             (r"**", Ok(r"(?:\A|/).*")),
