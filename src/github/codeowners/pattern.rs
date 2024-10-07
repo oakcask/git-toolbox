@@ -11,14 +11,17 @@ pub struct Pattern {
 pub enum PatternError {
     #[error("pattern is empty")]
     Empty,
-    #[error("pattern compilation failed")]
-    CompileError(String),
+    #[error("pattern compilation failed: {pattern}, {error}")]
+    CompileError {
+        pattern: String,
+        error: regex::Error
+    },
 }
 
 impl Pattern {
     pub fn new(pattern: String) -> Result<Pattern, PatternError> {
         let pat = Self::compile(&pattern)?;
-        let re = Regex::new(&pat).map_err(|e| PatternError::CompileError(e.to_string()))?;
+        let re = Regex::new(&pat).map_err(|error| PatternError::CompileError { pattern, error })?;
         Ok(Pattern { re })
     }
 
