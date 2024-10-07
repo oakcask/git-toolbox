@@ -10,8 +10,22 @@ cargo install --git https://github.com/oakcask/git-toolbox.git
 
 Or, download pre-built binary:
 
+### Linux x86-64
+
 ```
-curl -sSL https://github.com/oakcask/git-toolbox/releases/download/v2.0.0/aarch64-unknown-linux-gnu.tar.gz | tar zx -C /path/to/bin
+curl -sSL https://github.com/oakcask/git-toolbox/releases/latest/download/x86_64-unknown-linux-gnu.tar.gz | tar zx -C /path/to/bin
+```
+
+### Linux ARM64
+
+```
+curl -sSL https://github.com/oakcask/git-toolbox/releases/latest/download/aarch64-unknown-linux-gnu.tar.gz | tar zx -C /path/to/bin
+```
+
+### MacOS (Apple Silicon)
+
+```
+curl -sSL https://github.com/oakcask/git-toolbox/releases/latest/download/aarch64-apple-darwin.tar.gz | tar zx -C /path/to/bin
 ```
 
 ## Usage
