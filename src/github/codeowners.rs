@@ -16,13 +16,21 @@ struct Record {
 }
 
 #[derive(PartialEq, Debug, thiserror::Error)]
-enum RecordError {
+enum CodeOwnersEntryError {
     #[error("pattern missing")]
     PatternMissing,
+    #[error("{0}")]
+    PatternError(String)
+}
+
+impl From<PatternError> for CodeOwnersEntryError {
+    fn from(value: PatternError) -> Self {
+        CodeOwnersEntryError::PatternError(value.to_string())
+    }
 }
 
 impl TryFrom<String> for Record {
-    type Error = RecordError;
+    type Error = CodeOwnersEntryError;
     
     fn try_from(value: String) -> Result<Self, Self::Error> {
         let value = if let Some((i, _)) = value.chars().enumerate().find(|(_, c)| c == &'#') {
@@ -47,12 +55,12 @@ impl TryFrom<String> for Record {
 
 #[cfg(test)]
 mod tests {
-    use super::{RecordError, Record};
+    use super::{CodeOwnersEntryError, Record};
 
     #[test]
     fn parse() {
         let test_cases = [
-            ("# * @foo @bar", Err(RecordError::PatternMissing)),
+            ("# * @foo @bar", Err(CodeOwnersEntryError::PatternMissing)),
             ("* # @foo @bar", Ok(Record { pattern: "*".to_string(), owners: vec![] })),
             ("* @foo", Ok(Record { pattern: "*".to_string(), owners: vec!["@foo".to_string()]})),
             ("* @foo # @bar", Ok(Record { pattern: "*".to_string(), owners: vec!["@foo".to_string()]})),
@@ -81,7 +89,7 @@ struct CodeOwnersEntry {
 }
 
 impl TryFrom<Record> for CodeOwnersEntry {
-    type Error = PatternError;
+    type Error = CodeOwnersEntryError;
 
     fn try_from(value: Record) -> Result<Self, Self::Error> {
         let Record { pattern, owners } = value;
@@ -90,6 +98,14 @@ impl TryFrom<Record> for CodeOwnersEntry {
             pattern: Pattern::new(pattern)?,
             owners
         })
+    }
+}
+
+impl TryFrom<String> for CodeOwnersEntry {
+    type Error = CodeOwnersEntryError;
+    
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        CodeOwnersEntry::try_from(Record::try_from(value)?)
     }
 }
 
@@ -126,21 +142,13 @@ impl CodeOwners {
         let mut entries: Vec<CodeOwnersEntry> = blob.lines().enumerate().filter_map(|(idx, ln)| {
             match ln {
                 Ok(s) => {
-                    match Record::try_from(s) {
-                        Ok(r) => {
-                            match CodeOwnersEntry::try_from(r) {
-                                Ok(entry) => {
-                                    Some(entry)
-                                },
-                                Err(e) => {
-                                    warn!("line {} at CODEOWNERS: {}", idx + 1, e);
-                                    None
-                                }
-                            }
-                        }
+                    match CodeOwnersEntry::try_from(s) {
+                        Ok(entry) => {
+                            Some(entry)
+                        },
                         Err(e) => {
                             warn!("line {} at CODEOWNERS: {}", idx + 1, e);
-                            None                                
+                            None
                         }
                     }
                 }

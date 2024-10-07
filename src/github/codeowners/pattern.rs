@@ -9,16 +9,19 @@ pub struct Pattern {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum PatternError {
-    #[error("pattern is empty: {0}")]
-    Empty(String),
-    #[error("pattern compilation failed")]
-    CompileError(String),
+    #[error("pattern is empty")]
+    Empty,
+    #[error("pattern compilation failed: {pattern}, {error}")]
+    CompileError {
+        pattern: String,
+        error: regex::Error
+    },
 }
 
 impl Pattern {
     pub fn new(pattern: String) -> Result<Pattern, PatternError> {
-        let pat = Self::compile(pattern)?;
-        let re = Regex::new(&pat).map_err(|e| PatternError::CompileError(e.to_string()))?;
+        let pat = Self::compile(&pattern)?;
+        let re = Regex::new(&pat).map_err(|error| PatternError::CompileError { pattern, error })?;
         Ok(Pattern { re })
     }
 
@@ -26,7 +29,7 @@ impl Pattern {
         self.re.is_match(path)
     }
 
-    fn compile(pattern: String) -> Result<String, PatternError> {
+    fn compile(pattern: &str) -> Result<String, PatternError> {
         enum State {
             Head(Vec<u8>),
             HeadAsterisk(Vec<u8>),
@@ -140,7 +143,7 @@ impl Pattern {
 
         match state {
             State::Head(_) => {
-                Err(PatternError::Empty(pattern))?
+                Err(PatternError::Empty)?
             }
             State::Default(mut re_buf, escape) => {
                 // add [/\z] to pattern and path for preventing partial match.
@@ -184,7 +187,7 @@ mod tests {
     fn test_compile() {
     
         let test_case = [
-            (r"", Err(PatternError::Empty("".to_string()))),
+            (r"", Err(PatternError::Empty)),
             (r"/foo", Ok(r"\Afoo(?:/|\z)")),
             (r"*", Ok(r"(?:\A|/)")),
             (r"**", Ok(r"(?:\A|/).*")),
@@ -197,7 +200,7 @@ mod tests {
         ];
 
         for (idx, (input, want)) in test_case.into_iter().enumerate() {
-            let got = Pattern::compile(input.to_string());
+            let got = Pattern::compile(input);
             match (got, want) {
                 (Ok(pat_got), Ok(pat_want))  => {
                     assert_eq!(pat_got, pat_want.to_string(), "#{}: wants {} but got {}", idx, pat_want, pat_got);
