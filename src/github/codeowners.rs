@@ -95,6 +95,14 @@ impl TryFrom<Record> for CodeOwnersEntry {
     }
 }
 
+impl TryFrom<String> for CodeOwnersEntry {
+    type Error = CodeOwnersEntryError;
+    
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        CodeOwnersEntry::try_from(Record::try_from(value)?)
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum CodeOwnersError {
     #[error("CODEOWNERS file is not indexed in the repository; did you already commit or stage it?")]
@@ -128,21 +136,13 @@ impl CodeOwners {
         let mut entries: Vec<CodeOwnersEntry> = blob.lines().enumerate().filter_map(|(idx, ln)| {
             match ln {
                 Ok(s) => {
-                    match Record::try_from(s) {
-                        Ok(r) => {
-                            match CodeOwnersEntry::try_from(r) {
-                                Ok(entry) => {
-                                    Some(entry)
-                                },
-                                Err(e) => {
-                                    warn!("line {} at CODEOWNERS: {}", idx + 1, e);
-                                    None
-                                }
-                            }
-                        }
+                    match CodeOwnersEntry::try_from(s) {
+                        Ok(entry) => {
+                            Some(entry)
+                        },
                         Err(e) => {
                             warn!("line {} at CODEOWNERS: {}", idx + 1, e);
-                            None                                
+                            None
                         }
                     }
                 }
