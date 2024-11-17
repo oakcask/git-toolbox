@@ -1,0 +1,17 @@
+name: Renovate
+on:
+  pull_request:
+    paths:
+      - renovate.json
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            renovate.json
+      - uses: suzuki-shunsuke/github-action-renovate-config-validator@v1.1.0
