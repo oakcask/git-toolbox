@@ -21,7 +21,7 @@ git2 = { version = "0.19.0", features = ["vendored-libgit2", "vendored-openssl"]
 log = "0.4.22"
 once_cell = "1.20.2"
 regex = "1.11.1"
-thiserror = "2.0.0"
+thiserror = "2.0.3"
 
 [dev-dependencies]
 tempfile = "3.14.0"
