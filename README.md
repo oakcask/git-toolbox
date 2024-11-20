@@ -61,6 +61,31 @@ Options:
   -h, --help  Print help
 ```
 
+### git-dah
+
+An alternative of git-push, knows what you want to do.
+"Dah" stands for "Fus Ro Dah" (means "force, blance, push")
+which comes from unrelenting force shout (thu'um) in Skyrim.
+
+People who are most likely to be interested in this command, are like:
+
+* Have shared repository (like GitHub repo)
+* Never push the default branch because it is always updated by
+  other process or mechanism (like Pull Requests)
+* Always search in the shell history for complex git commands:
+  branch, switch, pull, push, blah blah blah...
+
+```
+Push local changes anyway
+
+Usage: git-dah [OPTIONS]
+
+Options:
+  -1, --step           do stepwise execution
+      --limit <LIMIT>  limit number of commits to scan in history [default: 100]
+  -h, --help           Print help
+```
+
 ### Relative Date Format
 
 Some option in `git-stale` accepts relative date.
