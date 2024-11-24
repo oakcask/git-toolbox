@@ -47,7 +47,7 @@ impl Command {
 }
 
 impl Cli {
-    fn to_command(self) -> Result<Command, Box<dyn Error>> {
+    fn into_command(self) -> Result<Command, Box<dyn Error>> {
         let repo = Repository::open_from_env()?;
         let pathspecs = if repo.is_bare() {
             self.pathspecs
@@ -67,7 +67,7 @@ impl Cli {
 
 fn main() -> ! {
     env_logger::init();
-    match Cli::parse().to_command().and_then(|cmd| cmd.run()) {
+    match Cli::parse().into_command().and_then(|cmd| cmd.run()) {
         Err(e) => {
             error!("{}", e.to_string());
             exit(1)
