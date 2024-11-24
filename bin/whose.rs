@@ -1,8 +1,8 @@
-use std::{error::Error, ffi::OsStr, os::unix::ffi::OsStrExt as _, process::exit};
 use clap::Parser;
 use git2::{Pathspec, PathspecFlags, Repository};
 use git_toolbox::{github::codeowners::CodeOwners, pathname};
 use log::error;
+use std::{error::Error, ffi::OsStr, os::unix::ffi::OsStrExt as _, process::exit};
 
 #[derive(Parser)]
 #[command(
@@ -10,7 +10,7 @@ use log::error;
     long_about = None)]
 struct Cli {
     #[arg()]
-    pathspecs: Vec<String>
+    pathspecs: Vec<String>,
 }
 
 struct Command {
@@ -39,7 +39,6 @@ impl Command {
             } else {
                 log::error!("cannot convet {:?} into utf-8 string.", path)
             }
-
         }
 
         Ok(())
@@ -60,7 +59,7 @@ impl Cli {
         Ok(Command {
             repo,
             codeowners,
-            pathspecs
+            pathspecs,
         })
     }
 }
@@ -72,8 +71,6 @@ fn main() -> ! {
             error!("{}", e.to_string());
             exit(1)
         }
-        Ok(_) => {
-            exit(0)
-        }
+        Ok(_) => exit(0),
     }
 }

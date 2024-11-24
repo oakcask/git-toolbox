@@ -14,7 +14,7 @@ impl From<IndexStage> for i32 {
             IndexStage::Normal => 0,
             IndexStage::Anscestor => 1,
             IndexStage::Ours => 2,
-            IndexStage::Theirs => 3
+            IndexStage::Theirs => 3,
         }
     }
 }
