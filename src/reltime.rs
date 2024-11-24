@@ -58,16 +58,16 @@ impl TryFrom<&str> for Reltime {
         match RE.captures(value) {
             Some(caps) => {
                 let years = caps.name("yr")
-                    .map_or(Ok(0), |s| u32::from_str_radix(s.as_str(), 10))
+                    .map_or(Ok(0), |s| s.as_str().parse())
                     .map_err(|_| Error::ParseError(value.to_string()))?;
                 let months = caps.name("mo")
-                    .map_or(Ok(0), |s| u32::from_str_radix(s.as_str(), 10))
+                    .map_or(Ok(0), |s| s.as_str().parse())
                     .map_err(|_| Error::ParseError(value.to_string()))?;
                 let weeks = caps.name("w")
-                    .map_or(Ok(0), |s| u32::from_str_radix(s.as_str(), 10))
+                    .map_or(Ok(0), |s| s.as_str().parse())
                     .map_err(|_| Error::ParseError(value.to_string()))?;
                 let days = caps.name("d")
-                    .map_or(Ok(0), |s| u32::from_str_radix(s.as_str(), 10))
+                    .map_or(Ok(0), |s| s.as_str().parse())
                     .map_err(|_| Error::ParseError(value.to_string()))?;
 
                 Ok(ReltimeBuilder {years, months, weeks, days}.build()?)
