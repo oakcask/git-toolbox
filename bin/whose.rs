@@ -1,8 +1,8 @@
-use std::{error::Error, ffi::OsStr, os::unix::ffi::OsStrExt as _, process::exit};
 use clap::Parser;
 use git2::{Pathspec, PathspecFlags, Repository};
 use git_toolbox::{github::codeowners::CodeOwners, pathname};
 use log::error;
+use std::{error::Error, ffi::OsStr, os::unix::ffi::OsStrExt as _, process::exit};
 
 #[derive(Parser)]
 #[command(
@@ -10,7 +10,7 @@ use log::error;
     long_about = None)]
 struct Cli {
     #[arg()]
-    pathspecs: Vec<String>
+    pathspecs: Vec<String>,
 }
 
 struct Command {
@@ -39,7 +39,6 @@ impl Command {
             } else {
                 log::error!("cannot convet {:?} into utf-8 string.", path)
             }
-
         }
 
         Ok(())
@@ -47,7 +46,7 @@ impl Command {
 }
 
 impl Cli {
-    fn to_command(self) -> Result<Command, Box<dyn Error>> {
+    fn into_command(self) -> Result<Command, Box<dyn Error>> {
         let repo = Repository::open_from_env()?;
         let pathspecs = if repo.is_bare() {
             self.pathspecs
@@ -60,20 +59,18 @@ impl Cli {
         Ok(Command {
             repo,
             codeowners,
-            pathspecs
+            pathspecs,
         })
     }
 }
 
 fn main() -> ! {
     env_logger::init();
-    match Cli::parse().to_command().and_then(|cmd| cmd.run()) {
+    match Cli::parse().into_command().and_then(|cmd| cmd.run()) {
         Err(e) => {
             error!("{}", e.to_string());
             exit(1)
         }
-        Ok(_) => {
-            exit(0)
-        }
+        Ok(_) => exit(0),
     }
 }

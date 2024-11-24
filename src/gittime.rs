@@ -1,4 +1,3 @@
-
 use chrono::{DateTime, FixedOffset, TimeZone};
 use git2::Time;
 

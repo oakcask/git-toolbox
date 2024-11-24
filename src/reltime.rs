@@ -9,26 +9,33 @@ pub enum Error {
     #[error("cannot parse {0}")]
     ParseError(String),
     #[error("range error")]
-    RangeError
+    RangeError,
 }
 
 struct ReltimeBuilder {
     days: u32,
     weeks: u32,
     months: u32,
-    years: u32
+    years: u32,
 }
 
 impl ReltimeBuilder {
     fn normalize(self) -> Result<Self, Error> {
-        let months = self.years.checked_mul(12).ok_or(Error::RangeError)?
-            .checked_add(self.months).ok_or(Error::RangeError)?
-            .checked_add(self.weeks / 4).ok_or(Error::RangeError)?;
+        let months = self
+            .years
+            .checked_mul(12)
+            .ok_or(Error::RangeError)?
+            .checked_add(self.months)
+            .ok_or(Error::RangeError)?
+            .checked_add(self.weeks / 4)
+            .ok_or(Error::RangeError)?;
         let weeks = self.weeks % 4;
-        let days = weeks.checked_mul(7).ok_or(Error::RangeError)?
+        let days = weeks
+            .checked_mul(7)
+            .ok_or(Error::RangeError)?
             .checked_add(self.days)
             .ok_or(Error::RangeError)?;
-    
+
         Ok(Self {
             days,
             weeks: 0,
@@ -39,42 +46,55 @@ impl ReltimeBuilder {
 
     fn build(self) -> Result<Reltime, Error> {
         let a = self.normalize()?;
-        Ok(Reltime { days: Days::new(a.days.into()), months: Months::new(a.months) })
+        Ok(Reltime {
+            days: Days::new(a.days.into()),
+            months: Months::new(a.months),
+        })
     }
 }
 
 #[derive(Clone)]
 pub struct Reltime {
     days: Days,
-    months: Months
+    months: Months,
 }
 
 impl TryFrom<&str> for Reltime {
     type Error = Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:(?P<yr>\d+)\s*(?:y|yrs?|years?))?(?:(?P<mo>\d+)\s*(?:mo|months?))?(?:(?P<w>\d+)\s*(?:w|weeks?))?(?:(?P<d>\d+)\s*(?:d|days?))?").unwrap());
- 
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(r"(?:(?P<yr>\d+)\s*(?:y|yrs?|years?))?(?:(?P<mo>\d+)\s*(?:mo|months?))?(?:(?P<w>\d+)\s*(?:w|weeks?))?(?:(?P<d>\d+)\s*(?:d|days?))?").unwrap()
+        });
+
         match RE.captures(value) {
             Some(caps) => {
-                let years = caps.name("yr")
-                    .map_or(Ok(0), |s| u32::from_str_radix(s.as_str(), 10))
+                let years = caps
+                    .name("yr")
+                    .map_or(Ok(0), |s| s.as_str().parse())
                     .map_err(|_| Error::ParseError(value.to_string()))?;
-                let months = caps.name("mo")
-                    .map_or(Ok(0), |s| u32::from_str_radix(s.as_str(), 10))
+                let months = caps
+                    .name("mo")
+                    .map_or(Ok(0), |s| s.as_str().parse())
                     .map_err(|_| Error::ParseError(value.to_string()))?;
-                let weeks = caps.name("w")
-                    .map_or(Ok(0), |s| u32::from_str_radix(s.as_str(), 10))
+                let weeks = caps
+                    .name("w")
+                    .map_or(Ok(0), |s| s.as_str().parse())
                     .map_err(|_| Error::ParseError(value.to_string()))?;
-                let days = caps.name("d")
-                    .map_or(Ok(0), |s| u32::from_str_radix(s.as_str(), 10))
+                let days = caps
+                    .name("d")
+                    .map_or(Ok(0), |s| s.as_str().parse())
                     .map_err(|_| Error::ParseError(value.to_string()))?;
 
-                Ok(ReltimeBuilder {years, months, weeks, days}.build()?)
+                Ok(ReltimeBuilder {
+                    years,
+                    months,
+                    weeks,
+                    days,
+                }
+                .build()?)
             }
-            None => {
-                Err(Error::ParseError(value.to_string()))
-            }
+            None => Err(Error::ParseError(value.to_string())),
         }
     }
 }
@@ -90,12 +110,11 @@ impl<Tz: TimeZone> Sub<Reltime> for DateTime<Tz> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
-    use chrono::DateTime;
     use crate::reltime::Reltime;
+    use chrono::DateTime;
+    use std::error::Error;
 
     #[test]
     fn test() -> Result<(), Box<dyn Error>> {
@@ -144,7 +163,11 @@ mod tests {
             let rt = Reltime::try_from(reltime)?;
             let got = dt_now - rt;
 
-            assert_eq!(dt_want, got, "wanted {} from {} before {} (#{})", want, now, reltime, idx);
+            assert_eq!(
+                dt_want, got,
+                "wanted {} from {} before {} (#{})",
+                want, now, reltime, idx
+            );
         }
 
         Ok(())

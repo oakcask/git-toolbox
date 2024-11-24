@@ -1,4 +1,7 @@
-use std::{env, path::{Component, Path, PathBuf, MAIN_SEPARATOR_STR}};
+use std::{
+    env,
+    path::{Component, Path, PathBuf, MAIN_SEPARATOR_STR},
+};
 
 use git2::Repository;
 
@@ -9,7 +12,7 @@ pub enum NormalizePathError {
     #[error("{0}")]
     RuntimeError(&'static str),
     #[error("{0}")]
-    IOError(String)
+    IOError(String),
 }
 
 /// Canonicalize path, but without symlink resolve.
@@ -21,9 +24,7 @@ fn canonicalize(path: PathBuf) -> PathBuf {
             Component::Prefix(pfx) => {
                 buf.push(pfx.as_os_str());
             }
-            Component::RootDir => {
-                buf.push(MAIN_SEPARATOR_STR)
-            }
+            Component::RootDir => buf.push(MAIN_SEPARATOR_STR),
             Component::CurDir => {
                 // do nothing
             }
@@ -31,7 +32,7 @@ fn canonicalize(path: PathBuf) -> PathBuf {
                 buf.pop();
             }
             Component::Normal(p) => {
-                buf.push(p);                    
+                buf.push(p);
             }
         }
     }
@@ -39,7 +40,10 @@ fn canonicalize(path: PathBuf) -> PathBuf {
     buf
 }
 
-pub fn normalize_paths(repo: &Repository, paths: Vec<String>) -> Result<Vec<String>, NormalizePathError> {
+pub fn normalize_paths(
+    repo: &Repository,
+    paths: Vec<String>,
+) -> Result<Vec<String>, NormalizePathError> {
     let repo_root = repo.path().parent().unwrap();
     let mut workdir_paths = Vec::new();
     for path in paths {
@@ -47,7 +51,8 @@ pub fn normalize_paths(repo: &Repository, paths: Vec<String>) -> Result<Vec<Stri
         let abs_path = normalize_path(
             &env::current_dir().map_err(|e| NormalizePathError::IOError(e.to_string()))?,
             repo_root,
-            path)?;
+            path,
+        )?;
         workdir_paths.push(abs_path)
     }
     Ok(workdir_paths)
@@ -57,29 +62,35 @@ fn normalize_path(cwd: &Path, repo_root: &Path, path: &Path) -> Result<String, N
     let mut components = path.components();
     match components.next() {
         Some(Component::CurDir)
-            | Some(Component::ParentDir)
-            | Some(Component::RootDir)
-            | Some(Component::Normal(_)) => {
+        | Some(Component::ParentDir)
+        | Some(Component::RootDir)
+        | Some(Component::Normal(_)) => {
             let abs = canonicalize(cwd.join(path));
-            let normalized = abs.strip_prefix(repo_root).map_err(|_| NormalizePathError::OutSideOfRepo(path.to_owned()))?;
+            let normalized = abs
+                .strip_prefix(repo_root)
+                .map_err(|_| NormalizePathError::OutSideOfRepo(path.to_owned()))?;
 
             match normalized.as_os_str().to_str() {
                 Some(s) => Ok(s.to_owned()),
-                None => Err(NormalizePathError::RuntimeError("cannot convert path to UTF-8 string"))
+                None => Err(NormalizePathError::RuntimeError(
+                    "cannot convert path to UTF-8 string",
+                )),
             }
         }
-        Some(Component::Prefix(_)) => {
-            Err(NormalizePathError::RuntimeError("cannot handle path with prefix"))
-        }
-        None => {
-            Err(NormalizePathError::RuntimeError("cannot handle empty path"))
-        }
+        Some(Component::Prefix(_)) => Err(NormalizePathError::RuntimeError(
+            "cannot handle path with prefix",
+        )),
+        None => Err(NormalizePathError::RuntimeError("cannot handle empty path")),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, path::{Path, PathBuf}, str::FromStr};
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        str::FromStr,
+    };
 
     use tempfile::TempDir;
 
@@ -95,11 +106,18 @@ mod tests {
             ("a//b", "a/b"),
             ("/a/b", "/a/b"),
             ("/a/b/..", "/a"),
-        ]; 
+        ];
 
         for (idx, (path, want)) in cases.into_iter().enumerate() {
             let got = super::canonicalize(PathBuf::from_str(path).unwrap());
-            assert_eq!(got.to_str(), Some(want), "#{} wants {} but got {:?}", idx, want, got);
+            assert_eq!(
+                got.to_str(),
+                Some(want),
+                "#{} wants {} but got {:?}",
+                idx,
+                want,
+                got
+            );
         }
     }
 
@@ -111,10 +129,26 @@ mod tests {
         fs::create_dir(tmpdir.path().join("foo").join("bar"))?;
 
         let cases = [
-            (tmpdir.path().join("foo"), Path::new("bar").to_path_buf(), "foo/bar"),
-            (tmpdir.path().join("foo"), Path::new("../a").to_path_buf(), "a"),
-            (tmpdir.path().join("foo"), Path::new("./b").to_path_buf(), "foo/b"),
-            (tmpdir.path().join("foo"), tmpdir.path().join("foo").join("bar"), "foo/bar"),
+            (
+                tmpdir.path().join("foo"),
+                Path::new("bar").to_path_buf(),
+                "foo/bar",
+            ),
+            (
+                tmpdir.path().join("foo"),
+                Path::new("../a").to_path_buf(),
+                "a",
+            ),
+            (
+                tmpdir.path().join("foo"),
+                Path::new("./b").to_path_buf(),
+                "foo/b",
+            ),
+            (
+                tmpdir.path().join("foo"),
+                tmpdir.path().join("foo").join("bar"),
+                "foo/bar",
+            ),
         ];
 
         for (idx, (cwd, path, normalized_path)) in cases.into_iter().enumerate() {
@@ -123,7 +157,12 @@ mod tests {
                 got,
                 Ok(normalized_path.to_owned()),
                 "#{}: wanted Ok({:?}) for repo={:?}, cwd={:?} and path={:?}, but got {:?}",
-                idx, normalized_path, repo_root, cwd, path, got
+                idx,
+                normalized_path,
+                repo_root,
+                cwd,
+                path,
+                got
             );
         }
 
