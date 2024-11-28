@@ -22,7 +22,7 @@ pub enum RefnameError {
 }
 
 impl HeadRef {
-    pub fn new<S: Into<String>>(refname: S) -> Result<HeadRef, RefnameError> {
+    pub fn new<S: Into<String> + AsRef<str>>(refname: S) -> Result<HeadRef, RefnameError> {
         HeadRefImpl::new(refname).map(HeadRef)
     }
 
@@ -47,14 +47,16 @@ impl HeadRefImpl {
     const PREFIX: &'static str = "refs/heads/";
     const HEAD: &'static str = "HEAD";
 
-    fn new<S: Into<String>>(refname: S) -> Result<HeadRefImpl, RefnameError> {
-        let refname: String = refname.into();
-        if refname.strip_prefix(Self::PREFIX).is_some() {
-            Ok(HeadRefImpl::Branch { full: refname })
-        } else if refname == Self::HEAD {
+    fn new<S: Into<String> + AsRef<str>>(refname: S) -> Result<HeadRefImpl, RefnameError> {
+        if refname.as_ref() == Self::HEAD {
             Ok(HeadRefImpl::Detached)
         } else {
-            Err(RefnameError::InvalidHeadRefFormat { refname })
+            let refname: String = refname.into();
+            if refname.strip_prefix(Self::PREFIX).is_some() {
+                Ok(HeadRefImpl::Branch { full: refname })
+            } else {
+                Err(RefnameError::InvalidHeadRefFormat { refname })
+            }
         }
     }
 
@@ -95,9 +97,7 @@ impl RemoteRef {
             }
         }
 
-        Err(RefnameError::InvalidRemoteRefFormat {
-            refname: refname.to_owned(),
-        })
+        Err(RefnameError::InvalidRemoteRefFormat { refname })
     }
 
     pub fn as_str(&self) -> &str {
