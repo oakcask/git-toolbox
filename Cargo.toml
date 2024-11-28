@@ -6,6 +6,10 @@ homepage = "https://github.com/oakcask/git-toolbox"
 license = "MIT OR Apache-2.0"
 
 [[bin]]
+name = "git-dah"
+path = "bin/dah.rs"
+
+[[bin]]
 name = "git-stale"
 path = "bin/stale.rs"
 
@@ -22,6 +26,7 @@ log = "0.4.22"
 once_cell = "1.20.2"
 regex = "1.11.1"
 thiserror = "2.0.3"
+ulid = "1.1.3"
 
 [dev-dependencies]
 tempfile = "3.14.0"
