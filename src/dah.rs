@@ -131,7 +131,7 @@ impl<'a> Collector for RepositoryCollector<'a> {
 
         if let Some(branch) = head_ref.branch() {
             let config = self.repo.config()?;
-            let config_protected = config.get_str("dah.protectedbranch")
+            let config_protected = config.get_string("dah.protectedbranch")
                 .map(Some)
                 .or_else(|e| {
                     if e.code() == ErrorCode::NotFound {
