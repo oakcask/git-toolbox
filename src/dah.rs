@@ -279,6 +279,10 @@ impl Action {
                 info!("found local commits on default branch");
                 return Ok(Self::RenameBranch);
             }
+            if collector.is_head_protected()? {
+                info!("found local commits on default or protected branch");
+                return Ok(Self::RenameBranch);
+            }
 
             if let Some(upstream_ref) = upstream_ref {
                 if collector.is_based_on_remote()? {
