@@ -1,10 +1,7 @@
-use std::{
-    ffi::{CStr, CString},
-};
-
+use std::ffi::{CStr, CString};
 use chrono::{DateTime, FixedOffset};
 use fnmatch_sys::{self, FNM_NOESCAPE};
-use git2::{Branch, Repository, Sort, Status, StatusOptions, StatusShow};
+use git2::{Branch, ErrorCode, Repository, Sort, Status, StatusOptions, StatusShow};
 use log::{info, warn};
 
 use crate::{
@@ -36,7 +33,7 @@ pub trait Collector {
     type Error;
 
     /// name of default branch
-    fn default_branch(&self) -> Result<String, Self::Error>;
+    fn default_branch(&self) -> Result<Option<String>, Self::Error>;
 
     /// check if the HEAD is protected
     fn is_head_protected(&self) -> Result<bool, Self::Error>;
@@ -117,8 +114,16 @@ fn fnmatch(pat: &CStr, s: &CStr) -> bool {
 impl<'a> Collector for RepositoryCollector<'a> {
     type Error = RepositoryCollectorError;
 
-    fn default_branch(&self) -> Result<String, Self::Error> {
-        Ok(self.repo.config()?.get_string("init.defaultbranch")?)
+    fn default_branch(&self) -> Result<Option<String>, Self::Error> {
+        self.repo.config()?.get_string("init.defaultbranch")
+            .map(Some)
+            .or_else(|e| {
+                if e.code() == ErrorCode::NotFound {
+                    Ok(None)
+                } else {
+                    Err(e.into())
+                }
+            })
     }
 
     fn is_head_protected(&self) -> Result<bool, Self::Error> {
@@ -126,13 +131,16 @@ impl<'a> Collector for RepositoryCollector<'a> {
 
         if let Some(branch) = head_ref.branch() {
             let config = self.repo.config()?;
-            let default_branch = config.get_str("init.defaultbranch")?;
-            if branch == default_branch {
-                return Ok(true);
-            }
-
-            let config_protected = config.get_str("dah.protectedbranch")?;
-            if !config_protected.is_empty() {
+            let config_protected = config.get_str("dah.protectedbranch")
+                .map(Some)
+                .or_else(|e| {
+                    if e.code() == ErrorCode::NotFound {
+                        Ok(None)
+                    } else {
+                        Err(e)
+                    }
+                })?;
+            if let Some(config_protected) = config_protected {
                 let branch_c_string = CString::new(branch).unwrap();
                 let is_match = config_protected.split(':').any(|n| {
                     let pat = CString::new(n).unwrap();
@@ -267,7 +275,7 @@ impl Action {
             if collector.is_synchronized()? {
                 return Ok(Self::None);
             }
-            if head_branch == default_branch {
+            if let Some(true) = default_branch.map(|b| head_branch == b) {
                 info!("found local commits on default branch");
                 return Ok(Self::RenameBranch);
             }
@@ -383,7 +391,7 @@ mod tests {
 
     #[derive(Debug, Clone, Default)]
     struct MockState {
-        default_branch: Option<String>,
+        default_branch: Option<Option<String>>,
         head_ref: Option<HeadRef>,
         upstream: Option<Option<(RemoteRef, bool, bool)>>,
         status: Option<Status>,
@@ -392,7 +400,7 @@ mod tests {
     impl MockState {
         fn with_default_branch(self, branch: &str) -> Self {
             Self {
-                default_branch: Some(branch.to_owned()),
+                default_branch: Some(Some(branch.to_owned())),
                 ..self
             }
         }
@@ -445,7 +453,7 @@ mod tests {
     impl Collector for MockState {
         type Error = &'static str;
 
-        fn default_branch(&self) -> Result<String, Self::Error> {
+        fn default_branch(&self) -> Result<Option<String>, Self::Error> {
             if let Some(o) = &self.default_branch {
                 Ok(o.clone())
             } else {
