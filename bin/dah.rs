@@ -1,6 +1,10 @@
-use std::{ffi::OsString, io::{self}, process::Stdio};
+use std::{
+    ffi::OsString,
+    io::{self},
+    process::Stdio,
+};
 
-use clap::{Parser};
+use clap::Parser;
 use git2::Repository;
 use git_toolbox::{
     dah::{self, Action, GitCli, RepositoryCollector, StepResult},
@@ -15,12 +19,12 @@ enum DahError {
     #[error("{command:?} failed with exit code {code:?}")]
     ExitStatus {
         command: OsString,
-        code: Option<i32>
+        code: Option<i32>,
     },
     #[error("internal error: {0}")]
     IO(#[from] io::Error),
     #[error("internal error: {0}")]
-    Git(#[from] git2::Error)
+    Git(#[from] git2::Error),
 }
 
 #[derive(Parser)]
@@ -134,55 +138,50 @@ impl Command {
     }
 }
 
-
 impl GitCli for Command {
     type Error = DahError;
 
     fn status(&self) -> Result<(), Self::Error> {
-        self.run_command(std::process::Command::new("git")
-            .arg("status")
-        )
+        self.run_command(std::process::Command::new("git").arg("status"))
     }
 
     fn create_branch_and_switch(&self) -> Result<(), Self::Error> {
         let branch_name = self.generate_branch_name()?;
-        self.run_command(std::process::Command::new("git")
-            .arg("switch")
-            .arg("-c")
-            .arg(branch_name)
+        self.run_command(
+            std::process::Command::new("git")
+                .arg("switch")
+                .arg("-c")
+                .arg(branch_name),
         )
     }
 
     fn rename_branch_and_switch(&self) -> Result<(), Self::Error> {
         let branch_name = self.generate_branch_name()?;
-        self.run_command(std::process::Command::new("git")
-            .arg("branch")
-            .arg("-m")
-            .arg(branch_name)
+        self.run_command(
+            std::process::Command::new("git")
+                .arg("branch")
+                .arg("-m")
+                .arg(branch_name),
         )
     }
 
     fn stage_changes(&self) -> Result<(), Self::Error> {
-        self.run_command(std::process::Command::new("git")
-            .arg("add")
-            .arg("-u")
-        )
+        self.run_command(std::process::Command::new("git").arg("add").arg("-u"))
     }
 
     fn commit(&self) -> Result<(), Self::Error> {
-        self.run_command(std::process::Command::new("git")
-            .arg("commit")
-        )
+        self.run_command(std::process::Command::new("git").arg("commit"))
     }
 
     fn pull_with_rebase(&self, upstream_ref: &str) -> Result<(), Self::Error> {
         // TODO: receive RemoteRef
         let upstream_ref = RemoteRef::new(upstream_ref).unwrap();
-        self.run_command(std::process::Command::new("git")
-            .arg("pull")
-            .arg("--rebase")
-            .arg(upstream_ref.remote())
-            .arg(upstream_ref.branch())
+        self.run_command(
+            std::process::Command::new("git")
+                .arg("pull")
+                .arg("--rebase")
+                .arg(upstream_ref.remote())
+                .arg(upstream_ref.branch()),
         )
     }
 
@@ -190,22 +189,24 @@ impl GitCli for Command {
         let head_ref = HeadRef::new(head_ref).unwrap();
         if let Some(upstream_ref) = upstream_ref {
             let upstream_ref = RemoteRef::new(upstream_ref).unwrap();
-            self.run_command(std::process::Command::new("git")
-                .arg("push")
-                .arg("--force-with-lease")
-                .arg("--force-if-includes")
-                .arg("-u")
-                .arg(upstream_ref.remote())
-                .arg(head_ref.branch().unwrap())
+            self.run_command(
+                std::process::Command::new("git")
+                    .arg("push")
+                    .arg("--force-with-lease")
+                    .arg("--force-if-includes")
+                    .arg("-u")
+                    .arg(upstream_ref.remote())
+                    .arg(head_ref.branch().unwrap()),
             )
         } else {
-            self.run_command(std::process::Command::new("git")
-                .arg("push")
-                .arg("--force-with-lease")
-                .arg("--force-if-includes")
-                .arg("-u")
-                .arg("origin")
-                .arg(head_ref.branch().unwrap())
+            self.run_command(
+                std::process::Command::new("git")
+                    .arg("push")
+                    .arg("--force-with-lease")
+                    .arg("--force-if-includes")
+                    .arg("-u")
+                    .arg("origin")
+                    .arg(head_ref.branch().unwrap()),
             )
         }
     }

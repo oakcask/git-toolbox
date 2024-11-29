@@ -220,6 +220,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8c02a5121d4ea3eb16a80748c74f5549a5665e4c21333c6098f283870fbdea6"
 
 [[package]]
+name = "fnmatch-sys"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2669e8526f74ef00ccd2011b1e357f6eebcea2925b28e67fcedd1740196f45b3"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "form_urlencoded"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -248,6 +257,7 @@ dependencies = [
  "chrono",
  "clap",
  "env_logger",
+ "fnmatch-sys",
  "git2",
  "log",
  "once_cell",

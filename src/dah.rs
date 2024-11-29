@@ -1,4 +1,9 @@
+use std::{
+    ffi::{CStr, CString},
+};
+
 use chrono::{DateTime, FixedOffset};
+use fnmatch_sys::{self, FNM_NOESCAPE};
 use git2::{Branch, Repository, Sort, Status, StatusOptions, StatusShow};
 use log::{info, warn};
 
@@ -32,6 +37,10 @@ pub trait Collector {
 
     /// name of default branch
     fn default_branch(&self) -> Result<String, Self::Error>;
+
+    /// check if the HEAD is protected
+    fn is_head_protected(&self) -> Result<bool, Self::Error>;
+
     /// HEAD refname
     fn head_ref(&self) -> Result<HeadRef, Self::Error>;
     /// Refname of the remote tracking branch for HEAD if exists.
@@ -81,9 +90,7 @@ impl RepositoryCollector<'_> {
     }
 }
 
-fn get_upstream_branch(
-    reference: git2::Reference<'_>,
-) -> Result<Option<Branch<'_>>, git2::Error> {
+fn get_upstream_branch(reference: git2::Reference<'_>) -> Result<Option<Branch<'_>>, git2::Error> {
     if reference.is_branch() {
         match Branch::wrap(reference).upstream() {
             Ok(upstream) => Ok(Some(upstream)),
@@ -100,11 +107,44 @@ fn get_upstream_branch(
     }
 }
 
+fn fnmatch(pat: &CStr, s: &CStr) -> bool {
+    let pat = pat.as_ptr();
+    let s = s.as_ptr();
+
+    unsafe { fnmatch_sys::fnmatch(pat, s, FNM_NOESCAPE) == 0 }
+}
+
 impl<'a> Collector for RepositoryCollector<'a> {
     type Error = RepositoryCollectorError;
 
     fn default_branch(&self) -> Result<String, Self::Error> {
         Ok(self.repo.config()?.get_string("init.defaultbranch")?)
+    }
+
+    fn is_head_protected(&self) -> Result<bool, Self::Error> {
+        let head_ref = HeadRef::new(self.repo.head()?.name().unwrap().to_owned()).unwrap();
+
+        if let Some(branch) = head_ref.branch() {
+            let config = self.repo.config()?;
+            let default_branch = config.get_str("init.defaultbranch")?;
+            if branch == default_branch {
+                return Ok(true);
+            }
+
+            let config_protected = config.get_str("dah.protectedbranch")?;
+            if !config_protected.is_empty() {
+                let branch_c_string = CString::new(branch).unwrap();
+                let is_match = config_protected.split(':').any(|n| {
+                    let pat = CString::new(n).unwrap();
+                    fnmatch(pat.as_c_str(), branch_c_string.as_c_str())
+                });
+                if is_match {
+                    return Ok(true);
+                }
+            }
+        }
+
+        Ok(false)
     }
 
     fn head_ref(&self) -> Result<HeadRef, Self::Error> {
@@ -324,11 +364,22 @@ where
 
 #[cfg(test)]
 mod tests {
-    use git2::{Status};
+    use git2::Status;
 
     use crate::refname::{HeadRef, RemoteRef};
 
     use super::{Action, Collector};
+
+    use super::fnmatch;
+
+    #[test]
+    fn test_fnmatch() {
+        let cases = [(c"foo/*", c"foo/bar/baz")];
+
+        for (pat, s) in cases {
+            assert!(fnmatch(pat, s))
+        }
+    }
 
     #[derive(Debug, Clone, Default)]
     struct MockState {
@@ -400,6 +451,10 @@ mod tests {
             } else {
                 Err("default_branch unset")
             }
+        }
+
+        fn is_head_protected(&self) -> Result<bool, Self::Error> {
+            todo!()
         }
 
         fn head_ref(&self) -> Result<HeadRef, Self::Error> {
