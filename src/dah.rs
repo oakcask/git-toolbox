@@ -1,11 +1,10 @@
 use std::{
-    ffi::{CStr, CString, OsStr},
-    os::unix::ffi::OsStrExt,
+    ffi::{CStr, CString},
 };
 
 use chrono::{DateTime, FixedOffset};
-use fnmatch_sys::{self, FNM_NOESCAPE, FNM_PATHNAME};
-use git2::{Branch, Refspec, Refspecs, Repository, Sort, Status, StatusOptions, StatusShow};
+use fnmatch_sys::{self, FNM_NOESCAPE};
+use git2::{Branch, Repository, Sort, Status, StatusOptions, StatusShow};
 use log::{info, warn};
 
 use crate::{
@@ -135,7 +134,7 @@ impl<'a> Collector for RepositoryCollector<'a> {
             let config_protected = config.get_str("dah.protectedbranch")?;
             if !config_protected.is_empty() {
                 let branch_c_string = CString::new(branch).unwrap();
-                let is_match = config_protected.split(':').into_iter().any(|n| {
+                let is_match = config_protected.split(':').any(|n| {
                     let pat = CString::new(n).unwrap();
                     fnmatch(pat.as_c_str(), branch_c_string.as_c_str())
                 });
