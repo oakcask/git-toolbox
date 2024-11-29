@@ -119,6 +119,7 @@ impl<'a> Collector for RepositoryCollector<'a> {
             .map(Some)
             .or_else(|e| {
                 if e.code() == ErrorCode::NotFound {
+                    warn!("init.defaultbranch is unset; git-dah guesses the default branch name by this config");
                     Ok(None)
                 } else {
                     Err(e.into())
@@ -135,6 +136,7 @@ impl<'a> Collector for RepositoryCollector<'a> {
                 .map(Some)
                 .or_else(|e| {
                     if e.code() == ErrorCode::NotFound {
+                        warn!("dah.protectedbranch is unset; git-dah guesses the protected branch by this config");
                         Ok(None)
                     } else {
                         Err(e)
