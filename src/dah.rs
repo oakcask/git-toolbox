@@ -131,7 +131,7 @@ impl<'a> Collector for RepositoryCollector<'a> {
 
         if let Some(branch) = head_ref.branch() {
             let config = self.repo.config()?;
-            let config_protected = config.get_str("dah.protectedbranch")
+            let config_protected = config.get_string("dah.protectedbranch")
                 .map(Some)
                 .or_else(|e| {
                     if e.code() == ErrorCode::NotFound {
@@ -279,6 +279,10 @@ impl Action {
                 info!("found local commits on default branch");
                 return Ok(Self::RenameBranch);
             }
+            if collector.is_head_protected()? {
+                info!("found local commits on default or protected branch");
+                return Ok(Self::RenameBranch);
+            }
 
             if let Some(upstream_ref) = upstream_ref {
                 if collector.is_based_on_remote()? {
@@ -392,6 +396,7 @@ mod tests {
     #[derive(Debug, Clone, Default)]
     struct MockState {
         default_branch: Option<Option<String>>,
+        protected_branches: Vec<String>,
         head_ref: Option<HeadRef>,
         upstream: Option<Option<(RemoteRef, bool, bool)>>,
         status: Option<Status>,
@@ -403,6 +408,12 @@ mod tests {
                 default_branch: Some(Some(branch.to_owned())),
                 ..self
             }
+        }
+
+        fn with_protected_branch(self, branch: &str) -> Self {
+            let mut s = self;
+            s.protected_branches.push(branch.to_owned());
+            s
         }
 
         fn with_head_ref(self, head_ref: &str) -> Self {
@@ -462,7 +473,13 @@ mod tests {
         }
 
         fn is_head_protected(&self) -> Result<bool, Self::Error> {
-            todo!()
+            if let Some(o) = &self.head_ref {
+                if let Some(br) = o.branch() {
+                    return Ok(self.protected_branches.iter().any(|pb| br == pb))
+                }
+            }
+
+            Ok(false)
         }
 
         fn head_ref(&self) -> Result<HeadRef, Self::Error> {
@@ -545,6 +562,26 @@ mod tests {
                     .with_default_branch("main")
                     .with_head_ref("refs/heads/main")
                     .with_upstream_ref("refs/remotes/origin/main", false, true)
+                    .with_status(Status::CURRENT),
+                Action::RenameBranch,
+            ),
+            // on protected branch and synchronized -> nothing to do.
+            (
+                MockState::default()
+                    .with_default_branch("main")
+                    .with_head_ref("refs/heads/develop")
+                    .with_upstream_ref("refs/remotes/origin/develop", true, true)
+                    .with_protected_branch("develop")
+                    .with_status(Status::CURRENT),
+                Action::None,
+            ),
+            // on default branch with local changes -> should rename the branch
+            (
+                MockState::default()
+                    .with_default_branch("main")
+                    .with_head_ref("refs/heads/develop")
+                    .with_upstream_ref("refs/remotes/origin/develop", false, true)
+                    .with_protected_branch("develop")
                     .with_status(Status::CURRENT),
                 Action::RenameBranch,
             ),
