@@ -75,16 +75,51 @@ People who are most likely to be interested in this command, are like:
 * Always search in the shell history for complex git commands:
   branch, switch, pull, push, blah blah blah...
 
+#### Synopsis
+
 ```
-Push local changes anyway
+Push local changes anyway -- I know what you mean
 
 Usage: git-dah [OPTIONS]
 
 Options:
-  -1, --step           do stepwise execution
-      --limit <LIMIT>  limit number of commits to scan in history [default: 100]
+  -1, --step           Do stepwise execution
+      --limit <LIMIT>  Increase number of commits to scan in history [default: 100]
   -h, --help           Print help
 ```
+
+#### Configuration
+
+git-dah never push the default branch or pre-configured protected branch.
+git-dah guesses the name of default branch by checking `init.defaultbranch`[^1] configuration.
+
+Or, and also, you can have extra branches which git-dah respects them as protected, by setting `dah.protectedbranch`.
+This is glob patterns separated by `:`.
+For example, to protect "develop", "release", and branchs starts with "release/" for all repository on your computer,
+execute git-config like below:
+
+```sh
+git config --global dah.protectedbranch "develop:release:release/*"
+```
+
+#### Behavior
+
+git-dah will automatically and repeatedly invoke git commands until stop in following rule:
+
+* Stop if working tree is conflicted or HEAD and its remote tracking branch is synchronized.
+* Stage changes by `git add -u` if working tree is "dirty".
+* Commit changes if staged changes exist.
+* Rename branch then switch to it, if HEAD points to the defualt or protected branch.
+  This will clean up the revisions "wrongly" commited on the default or protected branches.
+* Create branch then switch to it, if HEAD is detached.
+* Rebase with `git pull --rebase` if HEAD branch is diverged from its remote tracking branch.
+* Push with `git push --force-with-lease --force-if-includes -u origin <HEAD BRANCH>` then stop,
+  if HEAD branch is ahead of the remote tracking branch.
+
+Enabling stepwise exection (by `--step` option), git-dah will stop after invoking just one command for cautious user.
+
+[^1]: https://git-scm.com/docs/git-init#Documentation/git-init.txt-code--initial-branchcodeemltbranch-namegtem
+
 
 ### Relative Date Format
 
