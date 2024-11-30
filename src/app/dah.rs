@@ -4,10 +4,7 @@ use fnmatch_sys::{self, FNM_NOESCAPE};
 use git2::{Branch, ErrorCode, Repository, Sort, Status, StatusOptions, StatusShow};
 use log::{info, warn};
 
-use crate::{
-    gittime::GitTime,
-    refname::{HeadRef, RemoteRef},
-};
+use crate::git::{ GitTime, HeadRef, RemoteRef };
 
 #[derive(Debug, PartialEq)]
 pub enum Action {
@@ -380,7 +377,7 @@ where
 mod tests {
     use git2::Status;
 
-    use crate::refname::{HeadRef, RemoteRef};
+    use crate::git::{HeadRef, RemoteRef};
 
     use super::{Action, Collector};
 
@@ -505,24 +502,16 @@ mod tests {
         }
 
         fn is_synchronized(&self) -> Result<bool, Self::Error> {
-            if let Some(upstream) = &self.upstream {
-                if let Some((_, o, _)) = upstream {
-                    Ok(*o)
-                } else {
-                    Ok(false)
-                }
+            if let Some(Some((_, o, _))) = &self.upstream {
+                Ok(*o)
             } else {
                 Ok(false)
             }
         }
 
         fn is_based_on_remote(&self) -> Result<bool, Self::Error> {
-            if let Some(upstream) = &self.upstream {
-                if let Some((_, _, o)) = upstream {
-                    Ok(*o)
-                } else {
-                    Ok(false)
-                }
+            if let Some(Some((_, _, o))) = &self.upstream {
+                Ok(*o)
             } else {
                 Ok(false)
             }

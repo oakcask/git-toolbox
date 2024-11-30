@@ -3,7 +3,7 @@ use std::{io::BufRead, path::Path};
 use git2::Repository;
 use log::warn;
 
-use crate::git2_consts::IndexStage;
+use crate::git::IndexStage;
 
 use self::pattern::{Pattern, PatternError};
 

@@ -7,8 +7,8 @@ use std::{
 use clap::Parser;
 use git2::Repository;
 use git_toolbox::{
-    dah::{self, Action, GitCli, RepositoryCollector, StepResult},
-    refname::{HeadRef, RemoteRef},
+    app::dah::{self, Action, GitCli, RepositoryCollector, StepResult},
+    git::{HeadRef, RemoteRef},
 };
 use log::{error, info};
 use regex::Regex;

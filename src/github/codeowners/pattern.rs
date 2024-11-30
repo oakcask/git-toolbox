@@ -215,7 +215,7 @@ mod tests {
                     );
                 }
                 _ => {
-                    assert!(false, "#{}: didn't match Result", idx);
+                    unreachable!("#{}: didn't match Result", idx);
                 }
             }
         }
