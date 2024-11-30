@@ -502,24 +502,16 @@ mod tests {
         }
 
         fn is_synchronized(&self) -> Result<bool, Self::Error> {
-            if let Some(upstream) = &self.upstream {
-                if let Some((_, o, _)) = upstream {
-                    Ok(*o)
-                } else {
-                    Ok(false)
-                }
+            if let Some(Some((_, o, _))) = &self.upstream {
+                Ok(*o)
             } else {
                 Ok(false)
             }
         }
 
         fn is_based_on_remote(&self) -> Result<bool, Self::Error> {
-            if let Some(upstream) = &self.upstream {
-                if let Some((_, _, o)) = upstream {
-                    Ok(*o)
-                } else {
-                    Ok(false)
-                }
+            if let Some(Some((_, _, o))) = &self.upstream {
+                Ok(*o)
             } else {
                 Ok(false)
             }
