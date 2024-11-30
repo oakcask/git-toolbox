@@ -118,7 +118,7 @@ impl RemoteRef {
 
 #[cfg(test)]
 mod tests {
-    use crate::refname::HeadRef;
+    use crate::git::refname::HeadRef;
 
     use super::RemoteRef;
 
