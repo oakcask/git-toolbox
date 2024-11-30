@@ -186,10 +186,13 @@ mod tests {
             (r"/foo", Ok(r"\Afoo(?:/|\z)")),
             (r"*", Ok(r"(?:\A|/)")),
             (r"**", Ok(r"(?:\A|/).*")),
+            (r"***", Ok(r"(?:\A|/).*")), // redundant asterisk
             (r"*.js", Ok(r"(?:\A|/)[^/]*\.js(?:/|\z)")),
             (r"/build/logs", Ok(r"\Abuild/logs(?:/|\z)")),
             (r"docs/*", Ok(r"(?:\A|/)docs/[^/]*\z")),
             (r"apps/", Ok(r"(?:\A|/)apps/")),
+            (r"apps//", Ok(r"(?:\A|/)apps/")), // redundant slash
+            (r"apps//a", Ok(r"(?:\A|/)apps/a(?:/|\z)")), // redundant slash
             (r"**/logs", Ok(r"(?:\A|/)(?:[^/]+/)*logs(?:/|\z)")),
             (r"a/**/b", Ok(r"(?:\A|/)a/(?:[^/]+/)*b(?:/|\z)")),
         ];
@@ -249,18 +252,70 @@ mod tests {
             (r"**/logs", "build/logs", true),
             (r"**/logs", "scripts/logs", true),
             (r"**/logs", "deeply/nested/logs", true),
+            (r"??/?", "ab/c", true),
+            (r"??/?", "abc/d", false),
+            (r"??/?", "ab/cd", false),
+            (r"a*", "a", true),
+            (r"a*", "ab", true),
+            (r"a*", "abc", true),
+            (r"a*", "abc/d", false),
+            (r"foo/", "foo", false),
+            (r"foo/", "foo/a", true),
+            (r"foo/", "foo/a/b", true),
+            (r"foo//", "foo", false),
+            (r"foo//", "foo/a", true),
+            (r"foo//", "foo/a/b", true),
+            (r"*?z", "z", false),
+            (r"*?z", "az", true),
+            (r"*?z", "az/a", true),
+            (r"*/", "a", false),
+            (r"*/", "a/b", true),
+            (r"**?", "a", true),
+            (r"**?", "ab", true),
+            (r"**?", "abc", true),
+            (r"**?", "a/a", true),
+            (r"**?", "a/ab", true),
+            (r"**?", "a/abc", true),
+            (r"**?", "a/b/a", true),
+            (r"**?", "a/b/ab", true),
+            (r"**?", "a/b/abc", true),
+            (r"**z", "z", true),
+            (r"**z", "az", true),
+            (r"**z", "abz", true),
+            (r"**z", "a/z", true),
+            (r"**z", "a/az", true),
+            (r"**z", "a/abz", true),
+            (r"**z", "a/b/z", true),
+            (r"**z", "a/b/az", true),
+            (r"**z", "a/b/abz", true),
+            // These cases are ok?: a leading "**" followed by only one "/".
+            // The gitignore doc says: that means match in all directories.
+            // https://git-scm.com/docs/gitignore#_pattern_format
+            //
+            // Root directory is also directory so every file will match??
+            // I think it never reasonable just leaving "**/" to CODEOWNERS in real world...
+            (r"**/", "a", true),
+            (r"**/", "a/b", true),
+            (r"**/", "a/b/c", true),
+            // Aaand, reduction of double slash after double asterisk is bugged :p
+            // (r"**//", "a", true), 
+            // (r"**//", "a/b", true),
+            // (r"**//", "a/b/c", true),
+            // (r"**//z", "z", true),
+            // (r"**//z", "a/z", true),
+            // (r"**//z", "a/b/z", true),
         ];
 
-        for (idx, (pat, path, want)) in test_case.into_iter().enumerate() {
-            let pat = Pattern::new(pat.to_string());
-            assert!(pat.is_ok(), "#{}: wanted Ok but got {:?}", idx, pat);
+        for (idx, (pat_s, path, want)) in test_case.into_iter().enumerate() {
+            let pat = Pattern::new(pat_s.to_string());
+            assert!(pat.is_ok(), "#{}: wanted Ok but got {:?} for given pat:{:?} path:{:?}", idx, pat, pat_s, path);
 
             let pat = pat.unwrap();
             let got = pat.is_match(path);
             assert_eq!(
                 want, got,
-                "#{}: wanted {} but got {}; pat = {:?}",
-                idx, want, got, pat
+                "#{}: wanted {} but got {}; pat = {:?} for given pat:{:?} path:{:?}",
+                idx, want, got, pat, pat_s, path
             );
         }
     }
