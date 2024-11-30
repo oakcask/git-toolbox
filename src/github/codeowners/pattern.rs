@@ -34,9 +34,9 @@ impl Pattern {
             Head(Vec<u8>),
             HeadAsterisk(Vec<u8>),
             Default(Vec<u8>, Vec<u8>),
-            Reset(Vec<u8>),
             Asterisk(Vec<u8>),
             DoubleAsterisk(Vec<u8>),
+            DoubleAsteriskSlash(Vec<u8>),
             Slash(Vec<u8>),
         }
         let state = pattern
@@ -77,20 +77,6 @@ impl Pattern {
                         State::Default(re_buf, escape)
                     }
                 }
-                State::Reset(mut re_buf) => {
-                    if c == '/' {
-                        State::Slash(re_buf)
-                    } else if c == '*' {
-                        State::Asterisk(re_buf)
-                    } else if c == '?' {
-                        write!(&mut re_buf, r"[^/]").unwrap();
-                        State::Default(re_buf, Vec::new())
-                    } else {
-                        let mut escape = Vec::new();
-                        write!(&mut escape, "{}", c).unwrap();
-                        State::Default(re_buf, escape)
-                    }
-                }
                 State::Asterisk(mut re_buf) | State::HeadAsterisk(mut re_buf) => {
                     if c == '/' {
                         write!(&mut re_buf, r"[^/]*").unwrap();
@@ -110,7 +96,7 @@ impl Pattern {
                 State::DoubleAsterisk(mut re_buf) => {
                     if c == '/' {
                         write!(&mut re_buf, r"(?:[^/]+/)*").unwrap();
-                        State::Reset(re_buf)
+                        State::DoubleAsteriskSlash(re_buf)
                     } else if c == '*' {
                         State::DoubleAsterisk(re_buf)
                     } else if c == '?' {
@@ -119,6 +105,20 @@ impl Pattern {
                     } else {
                         let mut escape = Vec::new();
                         write!(&mut re_buf, r"[^/]*").unwrap();
+                        write!(&mut escape, "{}", c).unwrap();
+                        State::Default(re_buf, escape)
+                    }
+                }
+                State::DoubleAsteriskSlash(mut re_buf) => {
+                    if c == '/' {
+                        State::DoubleAsteriskSlash(re_buf)
+                    } else if c == '*' {
+                        State::Asterisk(re_buf)
+                    } else if c == '?' {
+                        write!(&mut re_buf, r"[^/]").unwrap();
+                        State::Default(re_buf, Vec::new())
+                    } else {
+                        let mut escape = Vec::new();
                         write!(&mut escape, "{}", c).unwrap();
                         State::Default(re_buf, escape)
                     }
@@ -151,7 +151,6 @@ impl Pattern {
                 write!(&mut re_buf, r"{}(?:/|\z)", regex::escape(&s)).unwrap();
                 Ok(unsafe { String::from_utf8_unchecked(re_buf) })
             }
-            State::Reset(re_buf) => Ok(unsafe { String::from_utf8_unchecked(re_buf) }),
             State::Asterisk(mut re_buf) => {
                 // trailing asterisk doesn't match further nested path
                 write!(&mut re_buf, r"[^/]*\z").unwrap();
@@ -166,6 +165,7 @@ impl Pattern {
                 write!(&mut re_buf, r".*").unwrap();
                 Ok(unsafe { String::from_utf8_unchecked(re_buf) })
             }
+            State::DoubleAsteriskSlash(re_buf) => Ok(unsafe { String::from_utf8_unchecked(re_buf) }),
             State::Slash(mut re_buf) => {
                 // Pattern `app/` should match
                 write!(&mut re_buf, r"/").unwrap();
@@ -297,13 +297,12 @@ mod tests {
             (r"**/", "a", true),
             (r"**/", "a/b", true),
             (r"**/", "a/b/c", true),
-            // Aaand, reduction of double slash after double asterisk is bugged :p
-            // (r"**//", "a", true), 
-            // (r"**//", "a/b", true),
-            // (r"**//", "a/b/c", true),
-            // (r"**//z", "z", true),
-            // (r"**//z", "a/z", true),
-            // (r"**//z", "a/b/z", true),
+            (r"**//", "a", true), 
+            (r"**//", "a/b", true),
+            (r"**//", "a/b/c", true),
+            (r"**//z", "z", true),
+            (r"**//z", "a/z", true),
+            (r"**//z", "a/b/z", true),
         ];
 
         for (idx, (pat_s, path, want)) in test_case.into_iter().enumerate() {
