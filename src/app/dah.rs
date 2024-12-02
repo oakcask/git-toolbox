@@ -249,21 +249,31 @@ impl Application {
     fn generate_branch_name(&self) -> Result<String, ApplicationError> {
         let head = self.repo.head()?;
         let commit = head.peel_to_commit()?;
+        let mut branch_name = self.repo.config()?.get_string("dah.branchprefix")
+            .or_else(|e| {
+                if e.code() == ErrorCode::NotFound {
+                    Ok(String::new())
+                } else {
+                    Err(e)
+                }
+            })?;
+
         let mesg = commit.message().and_then(|m| m.lines().next());
-        let random = Ulid::new().to_string().to_ascii_lowercase();
         if let Some(mesg) = mesg {
             let mesg = Regex::new(r#"\s+"#).unwrap().replace_all(mesg, "-");
             let mesg = Regex::new(r#"[^-\w]"#).unwrap().replace_all(&mesg, "_");
-
-            let mut mesg = mesg.to_lowercase();
-            mesg.push_str("-dah");
-            mesg.push_str(&random);
-            Ok(mesg)
+            let mesg = mesg.to_lowercase();
+            branch_name.push_str(&mesg);
+            branch_name.push_str("-dah");
         } else {
-            let mut mesg = String::from("dah");
-            mesg.push_str(&random);
-            Ok(mesg)
+            branch_name.push_str("dah");
         }
+  
+        let mut random = Ulid::new().to_string();
+        random.make_ascii_lowercase();
+        branch_name.push_str(&random);
+
+        Ok(branch_name)
     }
 
     fn run_command(&self, command: &mut std::process::Command) -> Result<(), ApplicationError> {
@@ -404,7 +414,38 @@ mod tests {
         if let Some(ulid) = got.strip_prefix("initial-commit-dah") {
             assert!(Ulid::from_string(ulid).is_ok(), "expected {:?} to have ULID suffix", got);
         } else {
-            unreachable!("expected {:?} to have {:?}", got, "initial-commit-dah");
+            unreachable!("expected {:?} to have prefix {:?}", got, "initial-commit-dah");
+        }
+    }
+
+    #[test]
+    fn application_generate_branch_name_prefixes_by_git_config_dah_branchprefix() {
+        let tmpdir = TempDir::new().unwrap();
+        let repo = Repository::init_bare(tmpdir.path()).unwrap();
+        repo.config().unwrap()
+            .open_level(ConfigLevel::Local).unwrap()
+            .set_str("dah.branchprefix", "feature/").unwrap();
+
+        {
+            let author = Signature::new("foo", "foo@example.com", GitTime::now().as_ref()).unwrap();
+            let tree = repo.treebuilder(None).unwrap();
+            let tree = tree.write().unwrap();
+            let tree = repo.find_tree(tree).unwrap();
+            repo.commit(Some("refs/heads/main"), &author, &author, "add something", &tree, &[]).unwrap();
+            repo.set_head("refs/heads/main").unwrap();
+        }
+
+        let app = Application {
+            repo,
+            step: true,
+            limit: 1,
+        };
+        let got = app.generate_branch_name().unwrap();
+
+        if let Some(ulid) = got.strip_prefix("feature/add-something-dah") {
+            assert!(Ulid::from_string(ulid).is_ok(), "expected {:?} to have ULID suffix", got);
+        } else {
+            unreachable!("expected {:?} to have prefix {:?}", got, "feature/add-something-dah");
         }
     }
 
