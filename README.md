@@ -88,22 +88,6 @@ Options:
   -h, --help           Print help
 ```
 
-#### Configuration
-
-git-dah never push the default branch or pre-configured protected branch.
-git-dah guesses the name of default branch by checking `init.defaultbranch`[^1] configuration.
-
-Or, and also, you can have extra branches which git-dah respects them as protected, by setting `dah.protectedbranch`.
-This is glob patterns separated by `:`.
-For example, to protect "develop", "release", and branchs starts with "release/" for all repository on your computer,
-execute git-config like below:
-
-```sh
-git config --global dah.protectedbranch "develop:release:release/*"
-```
-
-#### Behavior
-
 git-dah will automatically and repeatedly invoke git commands until stop in following rule:
 
 * Stop if working tree is conflicted or HEAD and its remote tracking branch is synchronized.
@@ -120,6 +104,34 @@ Enabling stepwise exection (by `--step` option), git-dah will stop after invokin
 
 [^1]: https://git-scm.com/docs/git-init#Documentation/git-init.txt-code--initial-branchcodeemltbranch-namegtem
 
+#### Configuration
+
+##### Disable push of default or protected branch
+
+git-dah never push the default branch or pre-configured protected branch.
+git-dah guesses the name of default branch by checking `init.defaultbranch`[^1] configuration.
+
+Or, and also, you can have extra branches which git-dah respects them as protected, by setting `dah.protectedbranch`.
+This is glob patterns separated by `:`.
+For example, to protect "develop", "release", and branchs starts with "release/" for all repository on your computer,
+execute git-config like below:
+
+```sh
+git config --global dah.protectedbranch "develop:release:release/*"
+```
+
+##### Add prefix to auto-created branch
+
+Branch name created by git-dah is based on the first line of HEAD commit message and
+random number (ULID).
+
+If you want to force git-dah to use prefered prefix for branch name, set `dah.branchprefix` like below:
+
+```sh
+git config --global dah.branchprefix feature/
+```
+
+In this case, git-dah will generate branch name like `feature/add-something-dah01je3k586pjjq4e5hxb13cwysp`.
 
 ### Relative Date Format
 
