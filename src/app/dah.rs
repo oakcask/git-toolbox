@@ -364,7 +364,12 @@ impl Dispatcher for Application {
 
 #[cfg(test)]
 mod tests {
-    use super::fnmatch;
+    use git2::{ConfigLevel, ObjectType, Repository, Signature};
+    use tempfile::TempDir;
+
+    use crate::git::GitTime;
+
+    use super::{fnmatch, statemachine::Collector, RepositoryCollector};
 
     #[test]
     fn test_fnmatch() {
@@ -373,5 +378,72 @@ mod tests {
         for (pat, s) in cases {
             assert!(fnmatch(pat, s))
         }
+    }
+
+    #[test]
+    fn repository_collector_default_branch_returns_git_config_init_defaultbranch() -> Result<(), Box<dyn std::error::Error>> {
+        let tmpdir = TempDir::new()?;
+        let repo = Repository::init_bare(tmpdir.path())?;
+
+        repo.config()?.open_level(ConfigLevel::Local)?.set_str("init.defaultbranch", "foo")?;
+
+        let got = RepositoryCollector::new(&repo).default_branch()?;
+        let got = got.as_ref().map(|s| s.as_str());
+
+        assert_eq!(Some("foo"), got);
+
+        Ok(())
+    }
+
+    // given:
+    //   - config: dah.protectedbranch=develop:release/*
+    //   - branches:
+    //     - develop
+    //     - release/v1 (also tagged as v1)
+    //     - release/v2
+    //     - release-latest
+    //
+    // when HEAD is refs/heads/develop then HEAD is protected it matches
+    // when HEAD is refs/heads/release/v1 then HEAD is protected beacause it matches
+    // when HEAD is refs/heads/release/v2 then HEAD is protected beacause it matches
+    // when HEAD is refs/heads/release-latest then HEAD is NOT protected because it doesn't match
+    // when HEAD is refs/tags/v1 then HEAD is NOT protected because it is detached
+    #[test]
+    fn repository_collector_is_head_protected() -> Result<(), Box<dyn std::error::Error>> {
+        let tmpdir = TempDir::new()?;
+        let repo = Repository::init_bare(tmpdir.path())?;
+        repo.config()?.open_level(ConfigLevel::Local)?.set_str("dah.protectedbranch", "develop:release/*")?;
+
+        let author = Signature::new("foo", "foo@example.com", GitTime::now().as_ref())?;
+        let tree = repo.treebuilder(None)?;
+        let tree = tree.write()?;
+        let tree = repo.find_tree(tree)?;
+        repo.commit(Some("refs/heads/develop"), &author, &author, "develop", &tree, &[])?;
+        let oid = repo.commit(Some("refs/heads/release/v1"), &author, &author, "release v1", &tree, &[])?;
+        repo.commit(Some("refs/heads/release/v2"), &author, &author, "release v2", &tree, &[])?;
+        repo.commit(Some("refs/heads/release-latest"), &author, &author, "release latest", &tree, &[])?;
+        repo.tag("v1", &repo.find_object(oid, Some(ObjectType::Commit))?, &author, "tag v1", true)?;
+
+        // listed
+        repo.set_head("refs/heads/develop")?;
+        assert!(RepositoryCollector::new(&repo).is_head_protected()?);
+
+        // listed
+        repo.set_head("refs/heads/release/v1")?;
+        assert!(RepositoryCollector::new(&repo).is_head_protected()?);
+
+        // listed
+        repo.set_head("refs/heads/release/v2")?;
+        assert!(RepositoryCollector::new(&repo).is_head_protected()?);
+
+        // not listed
+        repo.set_head("refs/heads/release-latest")?;
+        assert!(!RepositoryCollector::new(&repo).is_head_protected()?);
+
+        // detached
+        repo.set_head("refs/tags/v1")?;
+        assert!(!RepositoryCollector::new(&repo).is_head_protected()?);
+
+        Ok(())
     }
 }
