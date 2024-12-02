@@ -255,7 +255,7 @@ impl Application {
             let mesg = Regex::new(r#"\s+"#).unwrap().replace_all(mesg, "-");
             let mesg = Regex::new(r#"[^-\w]"#).unwrap().replace_all(&mesg, "_");
 
-            let mut mesg = mesg.into_owned();
+            let mut mesg = mesg.to_lowercase();
             mesg.push_str("-dah");
             mesg.push_str(&random);
             Ok(mesg)
@@ -401,10 +401,10 @@ mod tests {
         };
         let got = app.generate_branch_name().unwrap();
 
-        if let Some(ulid) = got.strip_prefix("Initial-commit-dah") {
+        if let Some(ulid) = got.strip_prefix("initial-commit-dah") {
             assert!(Ulid::from_string(ulid).is_ok(), "expected {:?} to have ULID suffix", got);
         } else {
-            unreachable!("expected {:?} to have {:?}", got, "Initial-commit-dah");
+            unreachable!("expected {:?} to have {:?}", got, "initial-commit-dah");
         }
     }
 
