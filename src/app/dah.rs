@@ -255,7 +255,7 @@ impl Application {
             let mesg = Regex::new(r#"\s+"#).unwrap().replace_all(mesg, "-");
             let mesg = Regex::new(r#"[^-\w]"#).unwrap().replace_all(&mesg, "_");
 
-            let mut mesg = mesg.into_owned();
+            let mut mesg = mesg.to_lowercase();
             mesg.push_str("-dah");
             mesg.push_str(&random);
             Ok(mesg)
@@ -366,8 +366,9 @@ impl Dispatcher for Application {
 mod tests {
     use git2::{ConfigLevel, ObjectType, Repository, Signature};
     use tempfile::TempDir;
+    use ulid::Ulid;
 
-    use crate::git::GitTime;
+    use crate::{app::dah::Application, git::GitTime};
 
     use super::{fnmatch, statemachine::Collector, RepositoryCollector};
 
@@ -377,6 +378,33 @@ mod tests {
 
         for (pat, s) in cases {
             assert!(fnmatch(pat, s))
+        }
+    }
+
+    #[test]
+    fn application_generate_branch_name() {
+        let tmpdir = TempDir::new().unwrap();
+        let repo = Repository::init_bare(tmpdir.path()).unwrap();
+        {
+            let author = Signature::new("foo", "foo@example.com", GitTime::now().as_ref()).unwrap();
+            let tree = repo.treebuilder(None).unwrap();
+            let tree = tree.write().unwrap();
+            let tree = repo.find_tree(tree).unwrap();
+            repo.commit(Some("refs/heads/main"), &author, &author, "Initial commit", &tree, &[]).unwrap();
+            repo.set_head("refs/heads/main").unwrap();
+        }
+
+        let app = Application {
+            repo,
+            step: true,
+            limit: 1,
+        };
+        let got = app.generate_branch_name().unwrap();
+
+        if let Some(ulid) = got.strip_prefix("initial-commit-dah") {
+            assert!(Ulid::from_string(ulid).is_ok(), "expected {:?} to have ULID suffix", got);
+        } else {
+            unreachable!("expected {:?} to have {:?}", got, "initial-commit-dah");
         }
     }
 
