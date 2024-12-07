@@ -53,7 +53,7 @@ pub trait Collector {
 }
 
 impl Action {
-    pub fn new<T>(collector: T) -> Result<Self, T::Error>
+    pub fn new<T>(collector: &T) -> Result<Self, T::Error>
     where
         T: Collector,
     {
@@ -452,7 +452,7 @@ mod tests {
         ];
 
         for (i, (given, expected)) in cases.into_iter().enumerate() {
-            match Action::new(given.clone()) {
+            match Action::new(&given) {
                 Ok(s) => assert_eq!(
                     expected, s,
                     "#{}: from {:?}, expected {:?} but got {:?}",
