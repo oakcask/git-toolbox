@@ -199,9 +199,9 @@ impl<'a> Collector for RepositoryCollector<'a> {
 }
 
 pub struct Application {
-    pub repo: Repository,
-    pub step: bool,
-    pub limit: usize,
+    repo: Repository,
+    step: bool,
+    limit: usize,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -227,6 +227,28 @@ fn get_command_line(command: &std::process::Command) -> OsString {
 }
 
 impl Application {
+    pub fn new(repo: Repository) -> Self {
+        Application {
+            repo,
+            step: false,
+            limit: 100,
+        }
+    }
+
+    pub fn with_step(self, step: bool) -> Self {
+        Self {
+            step,
+            ..self
+        }
+    }
+
+    pub fn with_limit(self, limit: usize) -> Self {
+        Self {
+            limit,
+            ..self
+        }
+    }
+
     pub fn run(self) -> Result<(), Box<dyn std::error::Error>> {
         env_logger::init();
 
@@ -404,11 +426,9 @@ mod tests {
             repo.set_head("refs/heads/main").unwrap();
         }
 
-        let app = Application {
-            repo,
-            step: true,
-            limit: 1,
-        };
+        let app = Application::new(repo)
+            .with_step(true)
+            .with_limit(1);
         let got = app.generate_branch_name().unwrap();
 
         if let Some(ulid) = got.strip_prefix("initial-commit-dah") {
@@ -435,11 +455,9 @@ mod tests {
             repo.set_head("refs/heads/main").unwrap();
         }
 
-        let app = Application {
-            repo,
-            step: true,
-            limit: 1,
-        };
+        let app = Application::new(repo)
+            .with_step(true)
+            .with_limit(1);
         let got = app.generate_branch_name().unwrap();
 
         if let Some(ulid) = got.strip_prefix("feature/add-something-dah") {
