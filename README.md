@@ -62,7 +62,7 @@ Options:
 ```
 
 git-whose is a support tool to improve usability of GitHub CODEOWNERS[^1];
-which searches over git index and lists owner(s) specified in `.github/CODEOWNERS` for given files where pathspecs[^2] matches.
+which searches over git index and lists owner(s) specified in `.github/CODEOWNERS` for given files where pathspecs[^2] match.
 Output will be list of pairs consisted of the file path and its code owners.
 
 Note that only committed and/or staged files are listed.
