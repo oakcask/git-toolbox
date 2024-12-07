@@ -15,32 +15,11 @@ use std::{
 use ulid::Ulid;
 
 #[derive(thiserror::Error, Debug)]
-pub enum RepositoryCollectorError {
+pub enum RepositoryStateError {
     #[error("commit inspection terminated")]
     CommitInspectionTerminated,
     #[error("{0}")]
     InternalError(#[from] git2::Error),
-}
-
-pub struct RepositoryCollector<'a> {
-    repo: &'a Repository,
-    walk_limit: usize,
-}
-
-impl RepositoryCollector<'_> {
-    pub fn new(repo: &Repository) -> RepositoryCollector<'_> {
-        RepositoryCollector {
-            repo,
-            walk_limit: 100usize,
-        }
-    }
-
-    pub fn with_walk_limit(self, num_commits: usize) -> Self {
-        Self {
-            walk_limit: num_commits,
-            ..self
-        }
-    }
 }
 
 fn get_upstream_branch(reference: git2::Reference<'_>) -> Result<Option<Branch<'_>>, git2::Error> {
@@ -67,8 +46,8 @@ fn fnmatch(pat: &CStr, s: &CStr) -> bool {
     unsafe { fnmatch_sys::fnmatch(pat, s, FNM_NOESCAPE) == 0 }
 }
 
-impl<'a> Collector for RepositoryCollector<'a> {
-    type Error = RepositoryCollectorError;
+impl Collector for Application {
+    type Error = RepositoryStateError;
 
     fn default_branch(&self) -> Result<Option<String>, Self::Error> {
         self.repo.config()?.get_string("init.defaultbranch")
@@ -155,10 +134,10 @@ impl<'a> Collector for RepositoryCollector<'a> {
                 upstream_head
             );
 
-            let mut count = self.walk_limit;
+            let mut count = self.limit;
             for oid in walk {
                 if count == 0 {
-                    return Err(RepositoryCollectorError::CommitInspectionTerminated);
+                    return Err(RepositoryStateError::CommitInspectionTerminated);
                 }
                 let commit = self.repo.find_commit(oid?)?;
                 let time: GitTime = commit.time().into();
@@ -253,8 +232,7 @@ impl Application {
         env_logger::init();
 
         loop {
-            let collector = RepositoryCollector::new(&self.repo).with_walk_limit(self.limit);
-            let action = Action::new(collector)?;
+            let action = Action::new(&self)?;
             match statemachine::step(action, &self)? {
                 StepResult::Stop => break,
                 StepResult::Continue => {
@@ -402,7 +380,7 @@ mod tests {
 
     use crate::{app::dah::Application, git::GitTime};
 
-    use super::{fnmatch, statemachine::Collector, RepositoryCollector};
+    use super::{fnmatch, statemachine::Collector};
 
     #[test]
     fn test_fnmatch() {
@@ -468,13 +446,13 @@ mod tests {
     }
 
     #[test]
-    fn repository_collector_default_branch_returns_git_config_init_defaultbranch() -> Result<(), Box<dyn std::error::Error>> {
+    fn application_default_branch_returns_git_config_init_defaultbranch() -> Result<(), Box<dyn std::error::Error>> {
         let tmpdir = TempDir::new()?;
         let repo = Repository::init_bare(tmpdir.path())?;
 
         repo.config()?.open_level(ConfigLevel::Local)?.set_str("init.defaultbranch", "foo")?;
 
-        let got = RepositoryCollector::new(&repo).default_branch()?;
+        let got = Application::new(repo).default_branch()?;
         let got = got.as_ref().map(|s| s.as_str());
 
         assert_eq!(Some("foo"), got);
@@ -496,7 +474,7 @@ mod tests {
     // when HEAD is refs/heads/release-latest then HEAD is NOT protected because it doesn't match
     // when HEAD is refs/tags/v1 then HEAD is NOT protected because it is detached
     #[test]
-    fn repository_collector_is_head_protected() -> Result<(), Box<dyn std::error::Error>> {
+    fn application_is_head_protected() -> Result<(), Box<dyn std::error::Error>> {
         let tmpdir = TempDir::new()?;
         let repo = Repository::init_bare(tmpdir.path())?;
         repo.config()?.open_level(ConfigLevel::Local)?.set_str("dah.protectedbranch", "develop:release/*")?;
@@ -511,25 +489,30 @@ mod tests {
         repo.commit(Some("refs/heads/release-latest"), &author, &author, "release latest", &tree, &[])?;
         repo.tag("v1", &repo.find_object(oid, Some(ObjectType::Commit))?, &author, "tag v1", true)?;
 
+        let repo = Repository::open_bare(tmpdir.path())?;
         // listed
         repo.set_head("refs/heads/develop")?;
-        assert!(RepositoryCollector::new(&repo).is_head_protected()?);
+        assert!(Application::new(repo).is_head_protected()?);
 
         // listed
+        let repo = Repository::open_bare(tmpdir.path())?;
         repo.set_head("refs/heads/release/v1")?;
-        assert!(RepositoryCollector::new(&repo).is_head_protected()?);
+        assert!(Application::new(repo).is_head_protected()?);
 
         // listed
+        let repo = Repository::open_bare(tmpdir.path())?;
         repo.set_head("refs/heads/release/v2")?;
-        assert!(RepositoryCollector::new(&repo).is_head_protected()?);
+        assert!(Application::new(repo).is_head_protected()?);
 
         // not listed
+        let repo = Repository::open_bare(tmpdir.path())?;
         repo.set_head("refs/heads/release-latest")?;
-        assert!(!RepositoryCollector::new(&repo).is_head_protected()?);
+        assert!(!Application::new(repo).is_head_protected()?);
 
         // detached
+        let repo = Repository::open_bare(tmpdir.path())?;
         repo.set_head("refs/tags/v1")?;
-        assert!(!RepositoryCollector::new(&repo).is_head_protected()?);
+        assert!(!Application::new(repo).is_head_protected()?);
 
         Ok(())
     }
