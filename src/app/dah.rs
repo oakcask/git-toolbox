@@ -122,13 +122,41 @@ impl Collector for Application {
         let head_oid = head.peel_to_commit()?.id();
         if let Some(upstream) = get_upstream_branch(head)? {
             let upstream = upstream.into_reference();
-            let upstream_head = upstream.peel_to_commit()?.id();
+            let upstream_commit = upstream.peel_to_commit()?;
+            let upstream_head = upstream_commit.id();
 
+            // check oid of head and the remote head first.
             if upstream_head == head_oid {
                 info!("no commits on local branch.");
                 return Ok(true)
             }
 
+            // when force push is allowed,
+            // search reflog to find out if the remote tracking branch's ref is included
+            if self.allow_force_push {
+                info!(
+                    "searching {}({}) from reflog of HEAD...",
+                    upstream.name().unwrap_or_default(),
+                    upstream_head
+                );
+                let upstream_head_time = GitTime::from(upstream_commit.time());
+                for ent in self.repo.reflog(self.head_ref()?.as_str())?.iter()
+                    .filter(|e| upstream_head_time <= e.committer().when().into()) {
+                    info!(
+                        " * {} time={:?} message={:?}",
+                        ent.id_new(),
+                        DateTime::<FixedOffset>::from(GitTime::from(ent.committer().when())),
+                        ent.message(),
+                    );
+                        
+                    if ent.id_old() == upstream_head {
+                        info!("DONE");
+                        return Ok(true)
+                    }
+                }
+            }
+            
+            // as the plan B, search history 
             let mut walk = self.repo.revwalk()?;
             walk.push(self.repo.head()?.peel_to_commit()?.id())?;
             walk.hide(upstream_head)?;
@@ -146,14 +174,12 @@ impl Collector for Application {
                     return Err(RepositoryStateError::CommitInspectionTerminated);
                 }
                 let commit = self.repo.find_commit(oid?)?;
-                let time: GitTime = commit.time().into();
-                let time: DateTime<FixedOffset> = time.into();
 
                 info!(
                     " * {} author={} time={}",
                     commit.id(),
                     commit.author(),
-                    time
+                    DateTime::<FixedOffset>::from(GitTime::from(commit.time())),
                 );
                 if commit
                     .parents()
@@ -187,6 +213,7 @@ pub struct Application {
     repo: Repository,
     step: bool,
     limit: usize,
+    allow_force_push: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -217,6 +244,7 @@ impl Application {
             repo,
             step: false,
             limit: 100,
+            allow_force_push: true,
         }
     }
 
@@ -230,6 +258,13 @@ impl Application {
     pub fn with_limit(self, limit: usize) -> Self {
         Self {
             limit,
+            ..self
+        }
+    }
+
+    pub fn with_allow_force_push(self, allow_force_push: bool) -> Self {
+        Self {
+            allow_force_push,
             ..self
         }
     }
@@ -281,6 +316,18 @@ impl Application {
 
         Ok(branch_name)
     }
+
+    fn new_git_push_command_with_force_options(&self) -> std::process::Command {
+        let mut cmd = std::process::Command::new("git");
+        cmd.arg("push");
+
+        if self.allow_force_push {
+            cmd.arg("--force-with-lease")
+                .arg("--force-if-includes");
+        } 
+
+        cmd
+   }
 
     fn run_command(&self, command: &mut std::process::Command) -> Result<(), ApplicationError> {
         let cmdline = get_command_line(command);
@@ -356,20 +403,14 @@ impl Dispatcher for Application {
         if let Some(upstream_ref) = upstream_ref {
             let upstream_ref = RemoteRef::new(upstream_ref).unwrap();
             self.run_command(
-                std::process::Command::new("git")
-                    .arg("push")
-                    .arg("--force-with-lease")
-                    .arg("--force-if-includes")
+                self.new_git_push_command_with_force_options()
                     .arg("-u")
                     .arg(upstream_ref.remote())
                     .arg(head_ref.branch().unwrap()),
             )
         } else {
             self.run_command(
-                std::process::Command::new("git")
-                    .arg("push")
-                    .arg("--force-with-lease")
-                    .arg("--force-if-includes")
+                self.new_git_push_command_with_force_options()
                     .arg("-u")
                     .arg("origin")
                     .arg(head_ref.branch().unwrap()),
@@ -580,6 +621,13 @@ mod tests {
         repo.set_head("refs/heads/main").unwrap();
         repo.checkout_head(None).unwrap();
         repo.reset(repo.head().unwrap().peel_to_commit().unwrap().parent(0).unwrap().as_object(), git2::ResetType::Hard, None).unwrap();
-        assert!(!Application::new(repo).is_based_on_remote().unwrap());
+        assert!(!Application::new(repo).with_allow_force_push(false).is_based_on_remote().unwrap());
+
+        let repo = TempDir::new().unwrap();
+        let repo = RepoBuilder::new().bare(false).clone_local(CloneLocal::Auto).clone(upstream_repo_url, repo.path()).unwrap();
+        repo.set_head("refs/heads/main").unwrap();
+        repo.checkout_head(None).unwrap();
+        repo.reset(repo.head().unwrap().peel_to_commit().unwrap().parent(0).unwrap().as_object(), git2::ResetType::Hard, None).unwrap();       
+        assert!(Application::new(repo).with_allow_force_push(true).is_based_on_remote().unwrap());
     }
 }
