@@ -23,12 +23,10 @@ struct Cli {
 impl Cli {
     fn into_app(self) -> Result<Application, Box<dyn std::error::Error>> {
         let repo = Repository::open_from_env()?;
-
-        Ok(Application {
-            repo,
-            step: self.step,
-            limit: self.limit,
-        })
+        let app = Application::new(repo)
+            .with_step(self.step)
+            .with_limit(self.limit);
+        Ok(app)
     }
 }
 
