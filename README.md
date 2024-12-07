@@ -108,8 +108,21 @@ People who are most likely to be interested in this command, are like:
 * Have shared repository (like GitHub repo)
 * Never push the default branch because it is always updated by
   other process or mechanism (like Pull Requests)
-* Always search in the shell history for complex git commands:
-  branch, switch, pull, push, blah blah blah...
+* Usually work on monorepo and busy pushing multiple branches around, for many Pull Requests; morning you change `monorepo/foo`, then after noon `monorepo/bar`... Phew!
+* Push on topic branch triggers deployment or test. And almost all the time you want it when you push.
+
+git-dah will change your workflow to:
+
+* switch to default branch
+* (skip `git switch -c`)
+* write some code...
+* (skip `git add -u`)
+* (skip `git commit`)
+* (skip `git push`)
+* `git dah`
+* write some code...
+* `git dah`
+* go back to start when you have to do other thing
 
 #### Synopsis
 
