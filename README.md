@@ -134,6 +134,7 @@ Usage: git-dah [OPTIONS]
 Options:
   -1, --step           Do stepwise execution
       --limit <LIMIT>  Increase number of commits to scan in history [default: 100]
+      --cooperative    Extra safety for team programming; meaning always rebase HEAD onto the remote branch and don't push with force [aliases: no-force]
   -h, --help           Print help
 ```
 
@@ -146,8 +147,10 @@ git-dah will automatically and repeatedly invoke git commands until stop in foll
   This will clean up the revisions "wrongly" commited on the default or protected branches.
 * Create branch then switch to it, if HEAD is detached.
 * Rebase with `git pull --rebase` if HEAD branch is diverged from its remote tracking branch.
+  * Without `--cooperative` option, this step is skipped if HEAD's reflog includes the commit on the top of the remote tracking branch.
 * Push with `git push --force-with-lease --force-if-includes -u origin <HEAD BRANCH>` then stop,
   if HEAD branch is ahead of the remote tracking branch.
+  * With `--cooperative` option, `--force-*` options are omited.
 
 Enabling stepwise exection (by `--step` option), git-dah will stop after invoking just one command for cautious user.
 
