@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use git2::Repository;
 use git_toolbox::app::dah::Application;
 
@@ -18,6 +18,13 @@ struct Cli {
         default_value = "100"
     )]
     limit: usize,
+    #[arg(
+        long = "cooperative",
+        visible_alias = "no-force",
+        help = "Extra safety for team programming; meaning always rebase HEAD onto the remote branch and don't push with force",
+        action = ArgAction::SetFalse,
+    )]
+    allow_force_push: bool,
 }
 
 impl Cli {
@@ -25,7 +32,8 @@ impl Cli {
         let repo = Repository::open_from_env()?;
         let app = Application::new(repo)
             .with_step(self.step)
-            .with_limit(self.limit);
+            .with_limit(self.limit)
+            .with_allow_force_push(self.allow_force_push);
         Ok(app)
     }
 }

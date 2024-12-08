@@ -1,6 +1,7 @@
 use chrono::{DateTime, FixedOffset, TimeZone};
 use git2::Time;
 
+#[derive(Debug)]
 /// Wrap git2::Time and provides interop between chrono and git2::Time
 pub struct GitTime(Time);
 
@@ -30,6 +31,27 @@ impl GitTime {
     /// Current time in local time zone
     pub fn now() -> Self {
         Self::from(chrono::Local::now())
+    }
+}
+
+impl PartialEq for GitTime {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.seconds() == other.0.seconds()
+    }
+}
+
+impl Eq for GitTime {
+}
+
+impl PartialOrd for GitTime {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for GitTime {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.seconds().cmp(&other.0.seconds())
     }
 }
 
@@ -73,5 +95,19 @@ mod tests {
 
         let gt = GitTime::from(dt);
         assert_eq!((gt.0.seconds(), gt.0.offset_minutes()), (1136239445, -7*60));
+    }
+
+    #[test]
+    fn test_gittime_ord() {
+        let cases: [(Time, Time, fn(GitTime, GitTime) -> bool); 3] = [
+            (Time::new(0, 0), Time::new(0, 9*60), |a, b| a == b),
+            (Time::new(0, 0), Time::new(1, 0), |a, b| a < b),
+            (Time::new(2, 0), Time::new(1, 0), |a, b| a > b),
+        ];
+
+        for (idx, (a, b, op)) in cases.into_iter().enumerate() {
+            let got = op(a.into(), b.into());
+            assert!(got, "#{} for {:?}(a = {:?}, b = {:?})", idx, op, a, b);
+        }
     }
 }
