@@ -119,11 +119,17 @@ impl Collector for Application {
 
     fn is_based_on_remote(&self) -> Result<bool, Self::Error> {
         let head = self.repo.head()?;
+        let head_oid = head.peel_to_commit()?.id();
         if let Some(upstream) = get_upstream_branch(head)? {
             let upstream = upstream.into_reference();
             let upstream_head = upstream.peel_to_commit()?.id();
-            let mut walk = self.repo.revwalk()?;
 
+            if upstream_head == head_oid {
+                info!("no commits on local branch.");
+                return Ok(true)
+            }
+
+            let mut walk = self.repo.revwalk()?;
             walk.push(self.repo.head()?.peel_to_commit()?.id())?;
             walk.hide(upstream_head)?;
             walk.set_sorting(Sort::TOPOLOGICAL)?;
@@ -374,11 +380,16 @@ impl Dispatcher for Application {
 
 #[cfg(test)]
 mod tests {
-    use git2::{ConfigLevel, ObjectType, Repository, Signature};
+    
+    
+    use git2::{build::{CloneLocal, RepoBuilder}, ConfigLevel, ObjectType, Repository, Signature};
+    
+    
     use tempfile::TempDir;
     use ulid::Ulid;
+    use url::Url;
 
-    use crate::{app::dah::Application, git::GitTime};
+    use crate::app::dah::Application;
 
     use super::{fnmatch, statemachine::Collector};
 
@@ -396,7 +407,7 @@ mod tests {
         let tmpdir = TempDir::new().unwrap();
         let repo = Repository::init_bare(tmpdir.path()).unwrap();
         {
-            let author = Signature::new("foo", "foo@example.com", GitTime::now().as_ref()).unwrap();
+            let author = Signature::now("foo", "foo@example.com").unwrap();
             let tree = repo.treebuilder(None).unwrap();
             let tree = tree.write().unwrap();
             let tree = repo.find_tree(tree).unwrap();
@@ -425,7 +436,7 @@ mod tests {
             .set_str("dah.branchprefix", "feature/").unwrap();
 
         {
-            let author = Signature::new("foo", "foo@example.com", GitTime::now().as_ref()).unwrap();
+            let author = Signature::now("foo", "foo@example.com").unwrap();
             let tree = repo.treebuilder(None).unwrap();
             let tree = tree.write().unwrap();
             let tree = repo.find_tree(tree).unwrap();
@@ -453,7 +464,7 @@ mod tests {
         repo.config()?.open_level(ConfigLevel::Local)?.set_str("init.defaultbranch", "foo")?;
 
         let got = Application::new(repo).default_branch()?;
-        let got = got.as_ref().map(|s| s.as_str());
+        let got = got.as_deref();
 
         assert_eq!(Some("foo"), got);
 
@@ -479,7 +490,7 @@ mod tests {
         let repo = Repository::init_bare(tmpdir.path())?;
         repo.config()?.open_level(ConfigLevel::Local)?.set_str("dah.protectedbranch", "develop:release/*")?;
 
-        let author = Signature::new("foo", "foo@example.com", GitTime::now().as_ref())?;
+        let author = Signature::now("foo", "foo@example.com")?;
         let tree = repo.treebuilder(None)?;
         let tree = tree.write()?;
         let tree = repo.find_tree(tree)?;
@@ -515,5 +526,60 @@ mod tests {
         assert!(!Application::new(repo).is_head_protected()?);
 
         Ok(())
+    }
+
+    #[test]
+    fn application_is_based_on_remote() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let upstream_repo = TempDir::new().unwrap();
+        let upstream_repo_path = upstream_repo.path();
+        let upstream_repo = Repository::init_bare(upstream_repo_path).unwrap();
+        {
+            let author = Signature::now("foo", "foo@example.com").unwrap();
+            let tree = upstream_repo.treebuilder(None).unwrap();
+            let tree = tree.write().unwrap();
+            let tree = upstream_repo.find_tree(tree).unwrap();
+            let c1 = upstream_repo.commit(None, &author, &author, "1", &tree, &[]).unwrap();
+            let c1 = upstream_repo.find_commit(c1).unwrap();
+            let c2 = upstream_repo.commit(None, &author, &author, "2", &tree, &[&c1]).unwrap();
+            let c2 = upstream_repo.find_commit(c2).unwrap();
+            upstream_repo.branch("main", &c2, true).unwrap();
+            upstream_repo.set_head("refs/heads/main").unwrap();
+        }
+ 
+        let mut upstream_repo_url = Url::parse("file:///").unwrap();
+        upstream_repo_url.set_path(upstream_repo_path.canonicalize().unwrap().to_str().unwrap());
+        let upstream_repo_url = upstream_repo_url.as_str();
+
+        // just checking out remote branch, so head ref and remote ref is same.
+        let repo = TempDir::new().unwrap();
+        let repo = RepoBuilder::new().bare(false).clone_local(CloneLocal::Auto).clone(upstream_repo_url, repo.path()).unwrap();
+        {
+            let repo = Repository::open(repo.path()).unwrap();
+            assert!(Application::new(repo).is_based_on_remote().unwrap());
+        }
+
+        // then, adding local change to HEAD, still based on the remote tracking branch.
+        {
+            let author = Signature::now("foo", "foo@example.com").unwrap();
+            let tree = repo.treebuilder(None).unwrap();
+            let tree = tree.write().unwrap();
+            let tree = repo.find_tree(tree).unwrap();
+            let head = repo.head().unwrap().peel_to_commit().unwrap();
+            repo.set_head("refs/heads/main").unwrap();
+            repo.checkout_head(None).unwrap();
+            repo.commit(Some("HEAD"), &author, &author, "local change", &tree, &[&head]).unwrap();
+        }
+        assert!(Application::new(repo).is_based_on_remote().unwrap());
+
+        // here, using new clone repository,
+        // checkout the remote branch then reset to HEAD~ will cause diversion.
+        let repo = TempDir::new().unwrap();
+        let repo = RepoBuilder::new().bare(false).clone_local(CloneLocal::Auto).clone(upstream_repo_url, repo.path()).unwrap();
+        repo.set_head("refs/heads/main").unwrap();
+        repo.checkout_head(None).unwrap();
+        repo.reset(repo.head().unwrap().peel_to_commit().unwrap().parent(0).unwrap().as_object(), git2::ResetType::Hard, None).unwrap();
+        assert!(!Application::new(repo).is_based_on_remote().unwrap());
     }
 }
