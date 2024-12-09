@@ -40,8 +40,7 @@ impl PartialEq for GitTime {
     }
 }
 
-impl Eq for GitTime {
-}
+impl Eq for GitTime {}
 
 impl PartialOrd for GitTime {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -77,11 +76,11 @@ mod tests {
         // time is `__time64_t` and that is elapsed seconds from epoch (1970-01-01 00:00:00 UTC).
 
         // 1970-01-01T09:00:00+0900 = epoch in UTC
-        let t = Time::new(0, 9*60);
+        let t = Time::new(0, 9 * 60);
         let gt: GitTime = t.into();
         let dt: DateTime<_> = gt.into();
 
-        let jst = FixedOffset::east_opt(9*3600).unwrap();
+        let jst = FixedOffset::east_opt(9 * 3600).unwrap();
         let nine_o_clock_in_jst = jst.with_ymd_and_hms(1970, 1, 1, 9, 0, 0).unwrap();
 
         assert_eq!(dt, nine_o_clock_in_jst);
@@ -90,17 +89,20 @@ mod tests {
     #[test]
     fn test_gittime_from_datetime() {
         // let's use Go language "Layout"
-        let minus7 = FixedOffset::west_opt(7*3600).unwrap();
+        let minus7 = FixedOffset::west_opt(7 * 3600).unwrap();
         let dt = minus7.with_ymd_and_hms(2006, 1, 2, 15, 4, 5).unwrap();
 
         let gt = GitTime::from(dt);
-        assert_eq!((gt.0.seconds(), gt.0.offset_minutes()), (1136239445, -7*60));
+        assert_eq!(
+            (gt.0.seconds(), gt.0.offset_minutes()),
+            (1136239445, -7 * 60)
+        );
     }
 
     #[test]
     fn test_gittime_ord() {
         let cases: [(Time, Time, fn(GitTime, GitTime) -> bool); 3] = [
-            (Time::new(0, 0), Time::new(0, 9*60), |a, b| a == b),
+            (Time::new(0, 0), Time::new(0, 9 * 60), |a, b| a == b),
             (Time::new(0, 0), Time::new(1, 0), |a, b| a < b),
             (Time::new(2, 0), Time::new(1, 0), |a, b| a > b),
         ];

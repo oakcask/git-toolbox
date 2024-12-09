@@ -128,7 +128,7 @@ impl Collector for Application {
             // check oid of head and the remote head first.
             if upstream_head == head_oid {
                 info!("no commits on local branch.");
-                return Ok(true)
+                return Ok(true);
             }
 
             // when force push is allowed,
@@ -140,23 +140,27 @@ impl Collector for Application {
                     upstream_head
                 );
                 let upstream_head_time = GitTime::from(upstream_commit.time());
-                for ent in self.repo.reflog(self.head_ref()?.as_str())?.iter()
-                    .filter(|e| upstream_head_time <= e.committer().when().into()) {
+                for ent in self
+                    .repo
+                    .reflog(self.head_ref()?.as_str())?
+                    .iter()
+                    .filter(|e| upstream_head_time <= e.committer().when().into())
+                {
                     info!(
                         " * {} time={:?} message={:?}",
                         ent.id_new(),
                         DateTime::<FixedOffset>::from(GitTime::from(ent.committer().when())),
                         ent.message(),
                     );
-                        
+
                     if ent.id_old() == upstream_head {
                         info!("DONE");
-                        return Ok(true)
+                        return Ok(true);
                     }
                 }
             }
-            
-            // as the plan B, search history 
+
+            // as the plan B, search history
             let mut walk = self.repo.revwalk()?;
             walk.push(self.repo.head()?.peel_to_commit()?.id())?;
             walk.hide(upstream_head)?;
@@ -249,17 +253,11 @@ impl Application {
     }
 
     pub fn with_step(self, step: bool) -> Self {
-        Self {
-            step,
-            ..self
-        }
+        Self { step, ..self }
     }
 
     pub fn with_limit(self, limit: usize) -> Self {
-        Self {
-            limit,
-            ..self
-        }
+        Self { limit, ..self }
     }
 
     pub fn with_allow_force_push(self, allow_force_push: bool) -> Self {
@@ -290,7 +288,10 @@ impl Application {
     fn generate_branch_name(&self) -> Result<String, ApplicationError> {
         let head = self.repo.head()?;
         let commit = head.peel_to_commit()?;
-        let mut branch_name = self.repo.config()?.get_string("dah.branchprefix")
+        let mut branch_name = self
+            .repo
+            .config()?
+            .get_string("dah.branchprefix")
             .or_else(|e| {
                 if e.code() == ErrorCode::NotFound {
                     Ok(String::new())
@@ -309,7 +310,7 @@ impl Application {
         } else {
             branch_name.push_str("dah");
         }
-  
+
         let mut random = Ulid::new().to_string();
         random.make_ascii_lowercase();
         branch_name.push_str(&random);
@@ -322,12 +323,11 @@ impl Application {
         cmd.arg("push");
 
         if self.allow_force_push {
-            cmd.arg("--force-with-lease")
-                .arg("--force-if-includes");
-        } 
+            cmd.arg("--force-with-lease").arg("--force-if-includes");
+        }
 
         cmd
-   }
+    }
 
     fn run_command(&self, command: &mut std::process::Command) -> Result<(), ApplicationError> {
         let cmdline = get_command_line(command);
@@ -421,11 +421,12 @@ impl Dispatcher for Application {
 
 #[cfg(test)]
 mod tests {
-    
-    
-    use git2::{build::{CloneLocal, RepoBuilder}, ConfigLevel, ObjectType, Repository, Signature};
-    
-    
+
+    use git2::{
+        build::{CloneLocal, RepoBuilder},
+        ConfigLevel, ObjectType, Repository, Signature,
+    };
+
     use tempfile::TempDir;
     use ulid::Ulid;
     use url::Url;
@@ -452,19 +453,32 @@ mod tests {
             let tree = repo.treebuilder(None).unwrap();
             let tree = tree.write().unwrap();
             let tree = repo.find_tree(tree).unwrap();
-            repo.commit(Some("refs/heads/main"), &author, &author, "Initial commit", &tree, &[]).unwrap();
+            repo.commit(
+                Some("refs/heads/main"),
+                &author,
+                &author,
+                "Initial commit",
+                &tree,
+                &[],
+            )
+            .unwrap();
             repo.set_head("refs/heads/main").unwrap();
         }
 
-        let app = Application::new(repo)
-            .with_step(true)
-            .with_limit(1);
+        let app = Application::new(repo).with_step(true).with_limit(1);
         let got = app.generate_branch_name().unwrap();
 
         if let Some(ulid) = got.strip_prefix("initial-commit-dah") {
-            assert!(Ulid::from_string(ulid).is_ok(), "expected {:?} to have ULID suffix", got);
+            assert!(
+                Ulid::from_string(ulid).is_ok(),
+                "expected {:?} to have ULID suffix",
+                got
+            );
         } else {
-            unreachable!("expected {:?} to have prefix {:?}", got, "initial-commit-dah");
+            unreachable!(
+                "expected {:?} to have prefix {:?}",
+                got, "initial-commit-dah"
+            );
         }
     }
 
@@ -472,37 +486,56 @@ mod tests {
     fn application_generate_branch_name_prefixes_by_git_config_dah_branchprefix() {
         let tmpdir = TempDir::new().unwrap();
         let repo = Repository::init_bare(tmpdir.path()).unwrap();
-        repo.config().unwrap()
-            .open_level(ConfigLevel::Local).unwrap()
-            .set_str("dah.branchprefix", "feature/").unwrap();
+        repo.config()
+            .unwrap()
+            .open_level(ConfigLevel::Local)
+            .unwrap()
+            .set_str("dah.branchprefix", "feature/")
+            .unwrap();
 
         {
             let author = Signature::now("foo", "foo@example.com").unwrap();
             let tree = repo.treebuilder(None).unwrap();
             let tree = tree.write().unwrap();
             let tree = repo.find_tree(tree).unwrap();
-            repo.commit(Some("refs/heads/main"), &author, &author, "add something", &tree, &[]).unwrap();
+            repo.commit(
+                Some("refs/heads/main"),
+                &author,
+                &author,
+                "add something",
+                &tree,
+                &[],
+            )
+            .unwrap();
             repo.set_head("refs/heads/main").unwrap();
         }
 
-        let app = Application::new(repo)
-            .with_step(true)
-            .with_limit(1);
+        let app = Application::new(repo).with_step(true).with_limit(1);
         let got = app.generate_branch_name().unwrap();
 
         if let Some(ulid) = got.strip_prefix("feature/add-something-dah") {
-            assert!(Ulid::from_string(ulid).is_ok(), "expected {:?} to have ULID suffix", got);
+            assert!(
+                Ulid::from_string(ulid).is_ok(),
+                "expected {:?} to have ULID suffix",
+                got
+            );
         } else {
-            unreachable!("expected {:?} to have prefix {:?}", got, "feature/add-something-dah");
+            unreachable!(
+                "expected {:?} to have prefix {:?}",
+                got, "feature/add-something-dah"
+            );
         }
     }
 
     #[test]
-    fn application_default_branch_returns_git_config_init_defaultbranch() -> Result<(), Box<dyn std::error::Error>> {
+    fn application_default_branch_returns_git_config_init_defaultbranch(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let tmpdir = TempDir::new()?;
         let repo = Repository::init_bare(tmpdir.path())?;
 
-        repo.config()?.open_level(ConfigLevel::Local)?.set_str("init.defaultbranch", "foo")?;
+        repo.config()?
+            .open_level(ConfigLevel::Local)?
+            .set_str("init.defaultbranch", "foo")?;
 
         let got = Application::new(repo).default_branch()?;
         let got = got.as_deref();
@@ -529,17 +562,53 @@ mod tests {
     fn application_is_head_protected() -> Result<(), Box<dyn std::error::Error>> {
         let tmpdir = TempDir::new()?;
         let repo = Repository::init_bare(tmpdir.path())?;
-        repo.config()?.open_level(ConfigLevel::Local)?.set_str("dah.protectedbranch", "develop:release/*")?;
+        repo.config()?
+            .open_level(ConfigLevel::Local)?
+            .set_str("dah.protectedbranch", "develop:release/*")?;
 
         let author = Signature::now("foo", "foo@example.com")?;
         let tree = repo.treebuilder(None)?;
         let tree = tree.write()?;
         let tree = repo.find_tree(tree)?;
-        repo.commit(Some("refs/heads/develop"), &author, &author, "develop", &tree, &[])?;
-        let oid = repo.commit(Some("refs/heads/release/v1"), &author, &author, "release v1", &tree, &[])?;
-        repo.commit(Some("refs/heads/release/v2"), &author, &author, "release v2", &tree, &[])?;
-        repo.commit(Some("refs/heads/release-latest"), &author, &author, "release latest", &tree, &[])?;
-        repo.tag("v1", &repo.find_object(oid, Some(ObjectType::Commit))?, &author, "tag v1", true)?;
+        repo.commit(
+            Some("refs/heads/develop"),
+            &author,
+            &author,
+            "develop",
+            &tree,
+            &[],
+        )?;
+        let oid = repo.commit(
+            Some("refs/heads/release/v1"),
+            &author,
+            &author,
+            "release v1",
+            &tree,
+            &[],
+        )?;
+        repo.commit(
+            Some("refs/heads/release/v2"),
+            &author,
+            &author,
+            "release v2",
+            &tree,
+            &[],
+        )?;
+        repo.commit(
+            Some("refs/heads/release-latest"),
+            &author,
+            &author,
+            "release latest",
+            &tree,
+            &[],
+        )?;
+        repo.tag(
+            "v1",
+            &repo.find_object(oid, Some(ObjectType::Commit))?,
+            &author,
+            "tag v1",
+            true,
+        )?;
 
         let repo = Repository::open_bare(tmpdir.path())?;
         // listed
@@ -581,21 +650,29 @@ mod tests {
             let tree = upstream_repo.treebuilder(None).unwrap();
             let tree = tree.write().unwrap();
             let tree = upstream_repo.find_tree(tree).unwrap();
-            let c1 = upstream_repo.commit(None, &author, &author, "1", &tree, &[]).unwrap();
+            let c1 = upstream_repo
+                .commit(None, &author, &author, "1", &tree, &[])
+                .unwrap();
             let c1 = upstream_repo.find_commit(c1).unwrap();
-            let c2 = upstream_repo.commit(None, &author, &author, "2", &tree, &[&c1]).unwrap();
+            let c2 = upstream_repo
+                .commit(None, &author, &author, "2", &tree, &[&c1])
+                .unwrap();
             let c2 = upstream_repo.find_commit(c2).unwrap();
             upstream_repo.branch("main", &c2, true).unwrap();
             upstream_repo.set_head("refs/heads/main").unwrap();
         }
- 
+
         let mut upstream_repo_url = Url::parse("file:///").unwrap();
         upstream_repo_url.set_path(upstream_repo_path.canonicalize().unwrap().to_str().unwrap());
         let upstream_repo_url = upstream_repo_url.as_str();
 
         // just checking out remote branch, so head ref and remote ref is same.
         let repo = TempDir::new().unwrap();
-        let repo = RepoBuilder::new().bare(false).clone_local(CloneLocal::Auto).clone(upstream_repo_url, repo.path()).unwrap();
+        let repo = RepoBuilder::new()
+            .bare(false)
+            .clone_local(CloneLocal::Auto)
+            .clone(upstream_repo_url, repo.path())
+            .unwrap();
         {
             let repo = Repository::open(repo.path()).unwrap();
             assert!(Application::new(repo).is_based_on_remote().unwrap());
@@ -610,24 +687,68 @@ mod tests {
             let head = repo.head().unwrap().peel_to_commit().unwrap();
             repo.set_head("refs/heads/main").unwrap();
             repo.checkout_head(None).unwrap();
-            repo.commit(Some("HEAD"), &author, &author, "local change", &tree, &[&head]).unwrap();
+            repo.commit(
+                Some("HEAD"),
+                &author,
+                &author,
+                "local change",
+                &tree,
+                &[&head],
+            )
+            .unwrap();
         }
         assert!(Application::new(repo).is_based_on_remote().unwrap());
 
         // here, using new clone repository,
         // checkout the remote branch then reset to HEAD~ will cause diversion.
         let repo = TempDir::new().unwrap();
-        let repo = RepoBuilder::new().bare(false).clone_local(CloneLocal::Auto).clone(upstream_repo_url, repo.path()).unwrap();
+        let repo = RepoBuilder::new()
+            .bare(false)
+            .clone_local(CloneLocal::Auto)
+            .clone(upstream_repo_url, repo.path())
+            .unwrap();
         repo.set_head("refs/heads/main").unwrap();
         repo.checkout_head(None).unwrap();
-        repo.reset(repo.head().unwrap().peel_to_commit().unwrap().parent(0).unwrap().as_object(), git2::ResetType::Hard, None).unwrap();
-        assert!(!Application::new(repo).with_allow_force_push(false).is_based_on_remote().unwrap());
+        repo.reset(
+            repo.head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .parent(0)
+                .unwrap()
+                .as_object(),
+            git2::ResetType::Hard,
+            None,
+        )
+        .unwrap();
+        assert!(!Application::new(repo)
+            .with_allow_force_push(false)
+            .is_based_on_remote()
+            .unwrap());
 
         let repo = TempDir::new().unwrap();
-        let repo = RepoBuilder::new().bare(false).clone_local(CloneLocal::Auto).clone(upstream_repo_url, repo.path()).unwrap();
+        let repo = RepoBuilder::new()
+            .bare(false)
+            .clone_local(CloneLocal::Auto)
+            .clone(upstream_repo_url, repo.path())
+            .unwrap();
         repo.set_head("refs/heads/main").unwrap();
         repo.checkout_head(None).unwrap();
-        repo.reset(repo.head().unwrap().peel_to_commit().unwrap().parent(0).unwrap().as_object(), git2::ResetType::Hard, None).unwrap();       
-        assert!(Application::new(repo).with_allow_force_push(true).is_based_on_remote().unwrap());
+        repo.reset(
+            repo.head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .parent(0)
+                .unwrap()
+                .as_object(),
+            git2::ResetType::Hard,
+            None,
+        )
+        .unwrap();
+        assert!(Application::new(repo)
+            .with_allow_force_push(true)
+            .is_based_on_remote()
+            .unwrap());
     }
 }
