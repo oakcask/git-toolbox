@@ -165,7 +165,9 @@ impl Pattern {
                 write!(&mut re_buf, r".*").unwrap();
                 Ok(unsafe { String::from_utf8_unchecked(re_buf) })
             }
-            State::DoubleAsteriskSlash(re_buf) => Ok(unsafe { String::from_utf8_unchecked(re_buf) }),
+            State::DoubleAsteriskSlash(re_buf) => {
+                Ok(unsafe { String::from_utf8_unchecked(re_buf) })
+            }
             State::Slash(mut re_buf) => {
                 // Pattern `app/` should match
                 write!(&mut re_buf, r"/").unwrap();
@@ -297,7 +299,7 @@ mod tests {
             (r"**/", "a", true),
             (r"**/", "a/b", true),
             (r"**/", "a/b/c", true),
-            (r"**//", "a", true), 
+            (r"**//", "a", true),
             (r"**//", "a/b", true),
             (r"**//", "a/b/c", true),
             (r"**//z", "z", true),
@@ -325,7 +327,14 @@ mod tests {
 
         for (idx, (pat_s, path, want)) in test_case.into_iter().enumerate() {
             let pat = Pattern::new(pat_s.to_string());
-            assert!(pat.is_ok(), "#{}: wanted Ok but got {:?} for given pat:{:?} path:{:?}", idx, pat, pat_s, path);
+            assert!(
+                pat.is_ok(),
+                "#{}: wanted Ok but got {:?} for given pat:{:?} path:{:?}",
+                idx,
+                pat,
+                pat_s,
+                path
+            );
 
             let pat = pat.unwrap();
             let got = pat.is_match(path);

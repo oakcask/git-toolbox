@@ -3,7 +3,10 @@ use std::{ffi::OsStr, os::unix::ffi::OsStrExt as _};
 use git2::{Pathspec, PathspecFlags, Repository};
 use log::info;
 
-use crate::{github::codeowners::{CodeOwners, CodeOwnersError}, pathname};
+use crate::{
+    github::codeowners::{CodeOwners, CodeOwnersError},
+    pathname,
+};
 
 pub struct Application {
     pub repo: Repository,
@@ -18,7 +21,7 @@ pub enum ApplicationError {
     #[error("{0}")]
     PathError(#[from] pathname::NormalizePathError),
     #[error("{0}")]
-    CodeOwnersError(#[from] CodeOwnersError)
+    CodeOwnersError(#[from] CodeOwnersError),
 }
 
 impl Application {
@@ -70,10 +73,7 @@ impl ApplicationBuilder {
             pathname::normalize_paths(&self.repo, pathspecs)?
         };
 
-        Ok(Self {
-            pathspecs,
-            ..self
-        })
+        Ok(Self { pathspecs, ..self })
     }
 
     pub fn build(self) -> Result<Application, ApplicationError> {
