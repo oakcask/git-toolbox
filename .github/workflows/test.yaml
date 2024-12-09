@@ -3,10 +3,31 @@ on:
   pull_request:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-lint-${{ github.ref }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo fmt
+      - uses: int128/update-generated-files-action@v2
+        with:
+          commit-message: "style: `cargo fmt`"
+          token: ${{ secrets.CI_TOKEN }}
+      - run: cargo clippy --fix
+      - uses: int128/update-generated-files-action@v2
+        with:
+          commit-message: "fix: `cargo clippy --fix`"
+          token: ${{ secrets.CI_TOKEN }}
+
   test:
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
+      group: ${{ github.workflow }}-test-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
