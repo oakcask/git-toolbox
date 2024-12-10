@@ -101,6 +101,7 @@ mod tests {
 
     #[test]
     fn test_gittime_ord() {
+        #[allow(clippy::type_complexity)]
         let cases: [(Time, Time, fn(GitTime, GitTime) -> bool); 3] = [
             (Time::new(0, 0), Time::new(0, 9 * 60), |a, b| a == b),
             (Time::new(0, 0), Time::new(1, 0), |a, b| a < b),
