@@ -8,14 +8,17 @@ license = "MIT OR Apache-2.0"
 [[bin]]
 name = "git-dah"
 path = "bin/dah.rs"
+required-features = ["git-dah"]
 
 [[bin]]
 name = "git-stale"
 path = "bin/stale.rs"
+required-features = ["git-stale"]
 
 [[bin]]
 name = "git-whose"
 path = "bin/whose.rs"
+required-features = ["git-whose"]
 
 [profile.release]
 strip = true
@@ -36,3 +39,9 @@ fnmatch-sys = "1.0.0"
 [dev-dependencies]
 tempfile = "3.14.0"
 url = "2.5.4"
+
+[features]
+default = ["git-dah", "git-stale", "git-whose"]
+git-dah = []
+git-stale = []
+git-whose = []
