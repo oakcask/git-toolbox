@@ -1,5 +1,11 @@
 # git-toolbox: shorthands for git operation
 
+git-toolbox is a collection of commands work with [git](https://git-scm.com/).
+
+* [git-dah](#git-dah) / a push command knows what you want
+* [git-stale](#git-stale) / lists stale branches
+* [git-whose](#git-whose) / find codeowners
+
 ## Installation
 
 If you have `cargo`, run following command:
@@ -8,7 +14,13 @@ If you have `cargo`, run following command:
 cargo install --git https://github.com/oakcask/git-toolbox.git
 ```
 
-Or, download pre-built binary:
+Maybe you only want one of the commands git-toolbox provides:
+
+```
+cargo install --git https://github.com/oakcask/git-toolbox.git --no-default-features --features git-stale
+```
+
+Or, download pre-built binaries:
 
 ### Linux x86-64
 
