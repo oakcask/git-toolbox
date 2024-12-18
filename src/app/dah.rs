@@ -218,6 +218,7 @@ pub struct Application {
     step: bool,
     limit: usize,
     allow_force_push: bool,
+    fetch_first: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -249,6 +250,7 @@ impl Application {
             step: false,
             limit: 100,
             allow_force_push: true,
+            fetch_first: true,
         }
     }
 
@@ -267,8 +269,21 @@ impl Application {
         }
     }
 
+    pub fn with_fetch_first(self, fetch_first: bool) -> Self {
+        Self {
+            fetch_first,
+            ..self
+        }
+    }
+
     pub fn run(self) -> Result<(), Box<dyn std::error::Error>> {
         env_logger::init();
+
+        if self.fetch_first {
+            if let Err(e) = self.run_command(std::process::Command::new("git").arg("fetch")) {
+                error!("fetch failed: {:?}; but we'll continue.", e);
+            }
+        }
 
         loop {
             let action = Action::new(&self)?;

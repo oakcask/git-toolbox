@@ -147,6 +147,7 @@ Options:
   -1, --step           Do stepwise execution
       --limit <LIMIT>  Increase number of commits to scan in history [default: 100]
       --cooperative    Extra safety for team programming; meaning always rebase HEAD onto the remote branch and don't push with force [aliases: no-force]
+      --no-fetch       Do not invoke git-fetch automatically
   -h, --help           Print help
 ```
 
