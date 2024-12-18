@@ -25,6 +25,12 @@ struct Cli {
         action = ArgAction::SetFalse,
     )]
     allow_force_push: bool,
+    #[arg(
+        long = "no-fetch",
+        help = "Do not invoke git-fetch automatically",
+        action = ArgAction::SetFalse,
+    )]
+    fetch_first: bool,
 }
 
 impl Cli {
@@ -33,7 +39,8 @@ impl Cli {
         let app = Application::new(repo)
             .with_step(self.step)
             .with_limit(self.limit)
-            .with_allow_force_push(self.allow_force_push);
+            .with_allow_force_push(self.allow_force_push)
+            .with_fetch_first(self.fetch_first);
         Ok(app)
     }
 }
