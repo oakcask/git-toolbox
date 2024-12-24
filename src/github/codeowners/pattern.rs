@@ -32,37 +32,64 @@ impl Pattern {
     fn compile(pattern: &str) -> Result<String, PatternError> {
         // re_out is a buffer where to output "compiled" pattern.
         enum State {
-            Head { re_out: Vec<u8> },
-            HeadAsterisk { re_out: Vec<u8> },
+            Head {
+                re_out: Vec<u8>,
+            },
+            HeadAsterisk {
+                re_out: Vec<u8>,
+            },
             // must_escape is temporary storage to buffer a part of literal string
-            // taken from pattern. this must be escaped before it concatinated to re_out. 
-            Default { re_out: Vec<u8>, must_escape: Vec<u8> },
-            Asterisk { re_out: Vec<u8> },
-            DoubleAsterisk { re_out: Vec<u8> },
-            DoubleAsteriskSlash { re_out: Vec<u8> },
-            Slash { re_out: Vec<u8> },
+            // taken from pattern. this must be escaped before it concatinated to re_out.
+            Default {
+                re_out: Vec<u8>,
+                must_escape: Vec<u8>,
+            },
+            Asterisk {
+                re_out: Vec<u8>,
+            },
+            DoubleAsterisk {
+                re_out: Vec<u8>,
+            },
+            DoubleAsteriskSlash {
+                re_out: Vec<u8>,
+            },
+            Slash {
+                re_out: Vec<u8>,
+            },
         }
         let state = pattern
             .chars()
             .fold(State::Head { re_out: Vec::new() }, |st, c| match st {
-                State::Head { mut re_out }=> {
+                State::Head { mut re_out } => {
                     if c == '/' {
                         write!(&mut re_out, r"\A").unwrap();
-                        State::Default { re_out, must_escape: Vec::new() }
+                        State::Default {
+                            re_out,
+                            must_escape: Vec::new(),
+                        }
                     } else if c == '*' {
                         write!(&mut re_out, r"(?:\A|/)").unwrap();
                         State::HeadAsterisk { re_out }
                     } else if c == '?' {
                         write!(&mut re_out, r"(?:\A|/)[^/]").unwrap();
-                        State::Default { re_out, must_escape: Vec::new() }
+                        State::Default {
+                            re_out,
+                            must_escape: Vec::new(),
+                        }
                     } else {
                         let mut must_escape = Vec::new();
                         write!(&mut re_out, r"(?:\A|/)").unwrap();
                         write!(&mut must_escape, "{}", c).unwrap();
-                        State::Default { re_out, must_escape }
+                        State::Default {
+                            re_out,
+                            must_escape,
+                        }
                     }
                 }
-                State::Default { mut re_out, mut must_escape } => {
+                State::Default {
+                    mut re_out,
+                    mut must_escape,
+                } => {
                     if c == '/' {
                         let s = unsafe { String::from_utf8_unchecked(must_escape) };
                         write!(&mut re_out, "{}", regex::escape(&s)).unwrap();
@@ -74,10 +101,16 @@ impl Pattern {
                     } else if c == '?' {
                         let s = unsafe { String::from_utf8_unchecked(must_escape) };
                         write!(&mut re_out, r"{}[^/]", regex::escape(&s)).unwrap();
-                        State::Default { re_out, must_escape: Vec::new() }
+                        State::Default {
+                            re_out,
+                            must_escape: Vec::new(),
+                        }
                     } else {
                         write!(&mut must_escape, "{}", c).unwrap();
-                        State::Default { re_out, must_escape }
+                        State::Default {
+                            re_out,
+                            must_escape,
+                        }
                     }
                 }
                 State::Asterisk { mut re_out } | State::HeadAsterisk { mut re_out } => {
@@ -88,12 +121,18 @@ impl Pattern {
                         State::DoubleAsterisk { re_out }
                     } else if c == '?' {
                         write!(&mut re_out, r"[^/]+").unwrap();
-                        State::Default { re_out, must_escape: Vec::new() }
+                        State::Default {
+                            re_out,
+                            must_escape: Vec::new(),
+                        }
                     } else {
                         let mut must_escape = Vec::new();
                         write!(&mut re_out, r"[^/]*").unwrap();
                         write!(&mut must_escape, "{}", c).unwrap();
-                        State::Default { re_out, must_escape }
+                        State::Default {
+                            re_out,
+                            must_escape,
+                        }
                     }
                 }
                 State::DoubleAsterisk { mut re_out } => {
@@ -104,12 +143,18 @@ impl Pattern {
                         State::DoubleAsterisk { re_out }
                     } else if c == '?' {
                         write!(&mut re_out, r"[^/]+").unwrap();
-                        State::Default { re_out, must_escape: Vec::new() }
+                        State::Default {
+                            re_out,
+                            must_escape: Vec::new(),
+                        }
                     } else {
                         let mut must_escape = Vec::new();
                         write!(&mut re_out, r"[^/]*").unwrap();
                         write!(&mut must_escape, "{}", c).unwrap();
-                        State::Default { re_out, must_escape }
+                        State::Default {
+                            re_out,
+                            must_escape,
+                        }
                     }
                 }
                 State::DoubleAsteriskSlash { mut re_out } => {
@@ -119,11 +164,17 @@ impl Pattern {
                         State::Asterisk { re_out }
                     } else if c == '?' {
                         write!(&mut re_out, r"[^/]").unwrap();
-                        State::Default { re_out, must_escape: Vec::new() }
+                        State::Default {
+                            re_out,
+                            must_escape: Vec::new(),
+                        }
                     } else {
                         let mut must_escape = Vec::new();
                         write!(&mut must_escape, "{}", c).unwrap();
-                        State::Default { re_out, must_escape }
+                        State::Default {
+                            re_out,
+                            must_escape,
+                        }
                     }
                 }
                 State::Slash { mut re_out } => {
@@ -134,19 +185,28 @@ impl Pattern {
                         State::Asterisk { re_out }
                     } else if c == '?' {
                         write!(&mut re_out, r"/[^/]").unwrap();
-                        State::Default { re_out, must_escape: Vec::new() }
+                        State::Default {
+                            re_out,
+                            must_escape: Vec::new(),
+                        }
                     } else {
                         let mut must_escape = Vec::new();
                         write!(&mut re_out, r"/").unwrap();
                         write!(&mut must_escape, "{}", c).unwrap();
-                        State::Default { re_out, must_escape }
+                        State::Default {
+                            re_out,
+                            must_escape,
+                        }
                     }
                 }
             });
 
         match state {
             State::Head { .. } => Err(PatternError::Empty)?,
-            State::Default { mut re_out, must_escape } => {
+            State::Default {
+                mut re_out,
+                must_escape,
+            } => {
                 // add [/\z] to pattern and path for preventing partial match.
                 // Pattern `path/to/foo` should only maches directory or file named `foo` under
                 // `path/to` directory. `path/to/foobar` shouldn't match.
