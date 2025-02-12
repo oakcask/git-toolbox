@@ -26,7 +26,7 @@ lto = "thin"
 
 [dependencies]
 chrono = "0.4.39"
-clap = { version = "4.5.28", features = ["derive"] }
+clap = { version = "4.5.29", features = ["derive"] }
 env_logger = "0.11.6"
 git2 = { version = "0.20.0", features = ["vendored-libgit2", "vendored-openssl"] }
 log = "0.4.24"
