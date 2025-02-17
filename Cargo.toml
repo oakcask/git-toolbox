@@ -37,7 +37,7 @@ ulid = "1.2.0"
 fnmatch-sys = "1.0.0"
 
 [dev-dependencies]
-tempfile = "3.17.0"
+tempfile = "3.17.1"
 url = "2.5.4"
 
 [features]
