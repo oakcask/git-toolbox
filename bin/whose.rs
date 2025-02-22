@@ -7,9 +7,7 @@ use git_toolbox::app::whose::{Application, ApplicationBuilder};
     about = "find GitHub CODEOWNERS for path(s)",
     long_about = None)]
 struct Cli {
-    #[arg(
-        long,
-        help = "Find out what line affects the result")]
+    #[arg(long, help = "Find out what line affects the result")]
     debug: bool,
     #[arg()]
     pathspecs: Vec<String>,

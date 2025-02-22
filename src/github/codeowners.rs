@@ -142,7 +142,7 @@ impl<'a, D: DebugInfo> Match<'a, D> {
     pub fn is_effective(&self) -> bool {
         self.effective
     }
-    
+
     pub fn debug_info(&self) -> &'a D {
         &self.entry.debug
     }
@@ -236,7 +236,10 @@ impl<D: DebugInfo> CodeOwners<D> {
             .filter(|&entry| entry.pattern.is_match(path))
             .rev()
             .enumerate()
-            .map(|(nth, entry)| Match { entry, effective: nth == 0 })
+            .map(|(nth, entry)| Match {
+                entry,
+                effective: nth == 0,
+            })
             .collect::<Vec<_>>()
             .into_iter()
             .rev()

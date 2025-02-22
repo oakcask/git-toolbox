@@ -39,12 +39,12 @@ impl Application for FinderApplication {
         for entry in matches.entries() {
             let path = OsStr::from_bytes(entry);
             if let Some(path) = OsStr::from_bytes(entry).to_str() {
-                    match self.codeowners.find_owners(path) {
-                        Some(owners) => {
-                            println!("{}: {}", path, owners.join(", "));
-                        }
-                        None => {
-                            println!("{}:", path);
+                match self.codeowners.find_owners(path) {
+                    Some(owners) => {
+                        println!("{}: {}", path, owners.join(", "));
+                    }
+                    None => {
+                        println!("{}:", path);
                     }
                 }
             } else {
@@ -63,14 +63,17 @@ struct DebugInfo {
 
 impl codeowners::DebugInfo for DebugInfo {
     fn parse(line: &str, line_no: usize) -> Self {
-        Self { line: line.to_owned(), line_no }
+        Self {
+            line: line.to_owned(),
+            line_no,
+        }
     }
 }
 
 struct DebugApplication {
     repo: Repository,
     codeowners: CodeOwners<DebugInfo>,
-    pathspecs: Vec<String>
+    pathspecs: Vec<String>,
 }
 
 impl Application for DebugApplication {
@@ -113,7 +116,7 @@ impl ApplicationBuilder {
         Self {
             repo,
             pathspecs: Default::default(),
-            debug: Default::default()
+            debug: Default::default(),
         }
     }
 
@@ -138,7 +141,7 @@ impl ApplicationBuilder {
             Ok(Box::new(DebugApplication {
                 repo: self.repo,
                 codeowners,
-                pathspecs: self.pathspecs
+                pathspecs: self.pathspecs,
             }))
         } else {
             let codeowners = CodeOwners::try_from_repo(&self.repo)?;
