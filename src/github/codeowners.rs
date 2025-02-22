@@ -107,8 +107,6 @@ mod tests {
 
 #[derive(Debug)]
 pub struct CodeOwners<D: DebugInfo = ()> {
-    // CODEOWNERS file entries, in reversed order.
-    // Winning owners are from last-match entry in the file.
     entries: Vec<CodeOwnersEntry<D>>,
 }
 
