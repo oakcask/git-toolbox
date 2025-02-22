@@ -117,9 +117,7 @@ pub trait DebugInfo: Sized {
 }
 
 impl DebugInfo for () {
-    fn parse(_line: &str, _line_no: usize) -> Self {
-        
-    }
+    fn parse(_line: &str, _line_no: usize) -> Self {}
 }
 
 #[derive(Debug)]
