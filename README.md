@@ -64,13 +64,14 @@ Options:
 ```
 find GitHub CODEOWNERS for path(s)
 
-Usage: git-whose [PATHSPECS]...
+Usage: git-whose [OPTIONS] [PATHSPECS]...
 
 Arguments:
   [PATHSPECS]...  
 
 Options:
-  -h, --help  Print help
+      --debug  Find out what line affects the result
+  -h, --help   Print help
 ```
 
 git-whose is a support tool to improve usability of GitHub CODEOWNERS[^1];

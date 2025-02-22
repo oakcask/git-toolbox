@@ -7,15 +7,18 @@ use git_toolbox::app::whose::{Application, ApplicationBuilder};
     about = "find GitHub CODEOWNERS for path(s)",
     long_about = None)]
 struct Cli {
+    #[arg(long, help = "Find out what line affects the result")]
+    debug: bool,
     #[arg()]
     pathspecs: Vec<String>,
 }
 
 impl Cli {
-    fn into_app(self) -> Result<Application, Box<dyn std::error::Error>> {
+    fn into_app(self) -> Result<Box<dyn Application>, Box<dyn std::error::Error>> {
         let repo = Repository::open_from_env()?;
         Ok(ApplicationBuilder::new(repo)
             .with_pathspecs(self.pathspecs)?
+            .with_debug(self.debug)
             .build()?)
     }
 }

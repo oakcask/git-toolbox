@@ -1,18 +1,12 @@
-use std::{ffi::OsStr, os::unix::ffi::OsStrExt as _};
+use std::{ffi::OsStr, fmt::Debug, os::unix::ffi::OsStrExt as _};
 
 use git2::{Pathspec, PathspecFlags, Repository};
 use log::info;
 
 use crate::{
-    github::codeowners::{CodeOwners, CodeOwnersError},
+    github::codeowners::{self, CodeOwners, CodeOwnersError},
     pathname,
 };
-
-pub struct Application {
-    pub repo: Repository,
-    pub codeowners: CodeOwners,
-    pub pathspecs: Vec<String>,
-}
 
 #[derive(thiserror::Error, Debug)]
 pub enum ApplicationError {
@@ -24,8 +18,18 @@ pub enum ApplicationError {
     CodeOwnersError(#[from] CodeOwnersError),
 }
 
-impl Application {
-    pub fn run(&self) -> Result<(), ApplicationError> {
+pub trait Application {
+    fn run(&self) -> Result<(), ApplicationError>;
+}
+
+struct FinderApplication {
+    repo: Repository,
+    codeowners: CodeOwners,
+    pathspecs: Vec<String>,
+}
+
+impl Application for FinderApplication {
+    fn run(&self) -> Result<(), ApplicationError> {
         env_logger::init();
 
         let index = self.repo.index()?;
@@ -52,9 +56,59 @@ impl Application {
     }
 }
 
+struct DebugInfo {
+    line: String,
+    line_no: usize,
+}
+
+impl codeowners::DebugInfo for DebugInfo {
+    fn parse(line: &str, line_no: usize) -> Self {
+        Self {
+            line: line.to_owned(),
+            line_no,
+        }
+    }
+}
+
+struct DebugApplication {
+    repo: Repository,
+    codeowners: CodeOwners<DebugInfo>,
+    pathspecs: Vec<String>,
+}
+
+impl Application for DebugApplication {
+    fn run(&self) -> Result<(), ApplicationError> {
+        env_logger::init();
+
+        let index = self.repo.index()?;
+        let pathspec = Pathspec::new(self.pathspecs.iter())?;
+        let matches = pathspec.match_index(&index, PathspecFlags::default())?;
+
+        for entry in matches.entries() {
+            let path = OsStr::from_bytes(entry);
+            if let Some(path) = OsStr::from_bytes(entry).to_str() {
+                // export in TOML
+                for e in self.codeowners.debug(path) {
+                    let debug = e.debug_info();
+                    println!("[[{:?}]]", path);
+                    println!("line = {:?}", debug.line_no);
+                    println!("rule = {:?}", debug.line);
+                    println!("owners = {:?}", e.owners());
+                    println!("effective = {:?}", e.is_effective());
+                }
+            } else {
+                log::error!("cannot convet {:?} into utf-8 string.", path)
+            }
+        }
+
+        Ok(())
+    }
+}
+
 pub struct ApplicationBuilder {
     repo: Repository,
     pathspecs: Vec<String>,
+    debug: bool,
 }
 
 impl ApplicationBuilder {
@@ -62,6 +116,7 @@ impl ApplicationBuilder {
         Self {
             repo,
             pathspecs: Default::default(),
+            debug: Default::default(),
         }
     }
 
@@ -76,12 +131,25 @@ impl ApplicationBuilder {
         Ok(Self { pathspecs, ..self })
     }
 
-    pub fn build(self) -> Result<Application, ApplicationError> {
-        let codeowners = CodeOwners::try_from_repo(&self.repo)?;
-        Ok(Application {
-            repo: self.repo,
-            codeowners,
-            pathspecs: self.pathspecs,
-        })
+    pub fn with_debug(self, debug: bool) -> Self {
+        Self { debug, ..self }
+    }
+
+    pub fn build(self) -> Result<Box<dyn Application>, ApplicationError> {
+        if self.debug {
+            let codeowners = CodeOwners::<DebugInfo>::try_from_repo(&self.repo)?;
+            Ok(Box::new(DebugApplication {
+                repo: self.repo,
+                codeowners,
+                pathspecs: self.pathspecs,
+            }))
+        } else {
+            let codeowners = CodeOwners::try_from_repo(&self.repo)?;
+            Ok(Box::new(FinderApplication {
+                repo: self.repo,
+                codeowners,
+                pathspecs: self.pathspecs,
+            }))
+        }
     }
 }
