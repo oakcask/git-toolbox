@@ -106,36 +106,58 @@ mod tests {
 }
 
 #[derive(Debug)]
-pub struct CodeOwners {
+pub struct CodeOwners<D: DebugInfo = ()> {
     // CODEOWNERS file entries, in reversed order.
     // Winning owners are from last-match entry in the file.
-    entries: Vec<CodeOwnersEntry>,
+    entries: Vec<CodeOwnersEntry<D>>,
 }
 
-#[derive(Debug)]
-struct CodeOwnersEntry {
-    pattern: Pattern,
-    owners: Vec<String>,
+pub trait DebugInfo: Sized {
+    fn parse(line: &str, line_no: usize) -> Self;
 }
 
-impl TryFrom<Record> for CodeOwnersEntry {
-    type Error = CodeOwnersEntryError;
-
-    fn try_from(value: Record) -> Result<Self, Self::Error> {
-        let Record { pattern, owners } = value;
-
-        Ok(CodeOwnersEntry {
-            pattern: Pattern::new(pattern)?,
-            owners,
-        })
+impl DebugInfo for () {
+    fn parse(_line: &str, _line_no: usize) -> Self {
+        ()
     }
 }
 
-impl TryFrom<String> for CodeOwnersEntry {
-    type Error = CodeOwnersEntryError;
+#[derive(Debug)]
+struct CodeOwnersEntry<D: DebugInfo = ()> {
+    pattern: Pattern,
+    owners: Vec<String>,
+    debug: D,
+}
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        CodeOwnersEntry::try_from(Record::try_from(value)?)
+pub struct Match<'a, D: DebugInfo> {
+    entry: &'a CodeOwnersEntry<D>,
+    effective: bool,
+}
+
+impl<'a, D: DebugInfo> Match<'a, D> {
+    pub fn owners(&self) -> &Vec<String> {
+        &self.entry.owners
+    }
+
+    pub fn is_effective(&self) -> bool {
+        self.effective
+    }
+    
+    pub fn debug_info(&self) -> &'a D {
+        &self.entry.debug
+    }
+}
+
+impl<D: DebugInfo> CodeOwnersEntry<D> {
+    pub fn parse(value: String, line_no: usize) -> Result<Self, CodeOwnersEntryError> {
+        let debug = D::parse(&value, line_no);
+        let Record { pattern, owners } = Record::try_from(value)?;
+
+        Ok(Self {
+            pattern: Pattern::new(pattern)?,
+            owners,
+            debug,
+        })
     }
 }
 
@@ -151,7 +173,7 @@ pub enum CodeOwnersError {
     IOError(#[from] std::io::Error),
 }
 
-impl CodeOwners {
+impl<D: DebugInfo> CodeOwners<D> {
     /// Parse CODEOWNERS file data in buffer.
     ///
     /// Examples
@@ -167,15 +189,15 @@ impl CodeOwners {
     /// assert_eq!(codeowners.find_owners("foo.ts"), None);
     /// assert_eq!(codeowners.find_owners("foo/bar.js"), Some(&vec![String::from("frontend-developer")]));
     /// ```
-    pub fn try_from_bufread<T: BufRead>(blob: T) -> Result<CodeOwners, CodeOwnersError> {
+    pub fn try_from_bufread<T: BufRead>(blob: T) -> Result<Self, CodeOwnersError> {
         // Forgetting errors in parsing is reasonable the repository barely contains invalid code owner records,
         // as GitHub enforces CODEOWNERS file being valid.
         // (and we are reading CODEOWNERS from index)
-        let entries: Vec<CodeOwnersEntry> = blob
+        let entries: Vec<CodeOwnersEntry<D>> = blob
             .lines()
             .enumerate()
             .filter_map(|(idx, ln)| match ln {
-                Ok(s) => match CodeOwnersEntry::try_from(s) {
+                Ok(s) => match CodeOwnersEntry::<_>::parse(s, idx + 1) {
                     Ok(entry) => Some(entry),
                     Err(CodeOwnersEntryError::PatternMissing) => None,
                     Err(e) => {
@@ -194,7 +216,7 @@ impl CodeOwners {
     }
 
     /// Read CODEOWNERS file from repository's index.
-    pub fn try_from_repo(repo: &Repository) -> Result<CodeOwners, CodeOwnersError> {
+    pub fn try_from_repo(repo: &Repository) -> Result<Self, CodeOwnersError> {
         let path = Path::new(".github/CODEOWNERS");
 
         if let Some(entry) = repo.index()?.get_path(path, IndexStage::Normal.into()) {
@@ -206,6 +228,18 @@ impl CodeOwners {
         } else {
             Err(CodeOwnersError::NotIndexed)
         }
+    }
+
+    pub fn debug<'a, 'b>(&'a self, path: &str) -> impl Iterator<Item = Match<'a, D>> {
+        self.entries
+            .iter()
+            .filter(|&entry| entry.pattern.is_match(path))
+            .rev()
+            .enumerate()
+            .map(|(nth, entry)| Match { entry, effective: nth == 0 })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
     }
 
     /// Find owners for matching path.

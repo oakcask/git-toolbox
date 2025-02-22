@@ -23,7 +23,7 @@ baz/ baz-owner
     );
 
     assert!(matches!(
-        CodeOwners::try_from_repo(&repo),
+        CodeOwners::<()>::try_from_repo(&repo),
         Err(CodeOwnersError::NotIndexed)
     ));
 }
@@ -49,7 +49,7 @@ baz/ baz-owner
 
     git_add(&repo, ".github/CODEOWNERS");
 
-    let co = CodeOwners::try_from_repo(&repo).unwrap();
+    let co = CodeOwners::<()>::try_from_repo(&repo).unwrap();
     assert_eq!(logger.take(), vec![]);
 
     assert_eq!(
