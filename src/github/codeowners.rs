@@ -180,7 +180,7 @@ impl<D: DebugInfo> CodeOwners<D> {
     /// let data = r#"
     /// *.js frontend-developer
     /// "#;
-    /// let codeowners = CodeOwners::try_from_bufread(data.as_bytes()).unwrap();
+    /// let codeowners = CodeOwners::<()>::try_from_bufread(data.as_bytes()).unwrap();
     ///
     /// assert_eq!(codeowners.find_owners("foo.ts"), None);
     /// assert_eq!(codeowners.find_owners("foo/bar.js"), Some(&vec![String::from("frontend-developer")]));
@@ -226,7 +226,7 @@ impl<D: DebugInfo> CodeOwners<D> {
         }
     }
 
-    pub fn debug<'a, 'b>(&'a self, path: &str) -> impl Iterator<Item = Match<'a, D>> {
+    pub fn debug<'a>(&'a self, path: &str) -> impl Iterator<Item = Match<'a, D>> {
         self.entries
             .iter()
             .filter(|&entry| entry.pattern.is_match(path))
