@@ -42,74 +42,6 @@ curl -sSL https://github.com/oakcask/git-toolbox/releases/latest/download/aarch6
 
 ## Usage
 
-### git-stale
-
-```
-List or delete stale branches
-
-Usage: git-stale [OPTIONS] [BRANCHES]...
-
-Arguments:
-  [BRANCHES]...  Select branches with specified prefixes, or select all if unset
-
-Options:
-  -d, --delete         Perform deletion of selected branches
-      --push           Combined with --delete, perform deletion on remote repository instead
-      --since <SINCE>  Select local branch with commit times older than the specified relative time
-  -h, --help           Print help
-```
-
-### git-whose
-
-```
-find GitHub CODEOWNERS for path(s)
-
-Usage: git-whose [OPTIONS] [PATHSPECS]...
-
-Arguments:
-  [PATHSPECS]...  
-
-Options:
-      --debug  Find out what line affects the result
-  -h, --help   Print help
-```
-
-git-whose is a support tool to improve usability of GitHub CODEOWNERS[^1];
-which searches over git index and lists owner(s) specified in `.github/CODEOWNERS` for given files where pathspecs[^2] match.
-Output will be list of pairs consisted of the file path and its code owners.
-
-Note that only committed and/or staged files are listed.
-Becaue git-whose only searches in git index, as described above.
-So, maybe it is inconvinient, git-whose requires `.github/CODEOWNERS` and all other files to be commited or staged,
-but this enables us to search large repository (like monorepo) faster, and to search over bare repository and sparse tree.
-
-#### Pathspecs parameter
-
-In non-bare repository for most use cases, relative paths can be passed as pathspecs parameters.
-The paths will be normalized into relative paths from repository root (parent repository to `.git/`) based on
-the current working directory and repository root location.
-Paths cannot point the outside of repository.
-
-```sh
-git init . # assume $PWD is repository root.
-mkdir -p foo/bar .github
-touch foo/baz foo/bar/.keep .github/CODEOWNERS
-git add .
-
-# those are equivalent:
-git whose foo/baz
-(cd foo && git whose baz)
-(cd foo/bar && git whose ../baz)
-
-# ERROR: because path points outside of repo.
-git whose ../outside
-```
-
-In other case, for bare repository, pathspecs are interpreted as-is.
-
-[^1]: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
-[^2]: https://git-scm.com/docs/gitglossary#Documentation/gitglossary.txt-aiddefpathspecapathspec
-
 ### git-dah
 
 An alternative of git-push, knows what you want to do.
@@ -173,7 +105,7 @@ Enabling stepwise exection (by `--step` option), git-dah will stop after invokin
 ##### Disable push of default or protected branch
 
 git-dah never push the default branch or pre-configured protected branch.
-git-dah guesses the name of default branch by checking `init.defaultbranch`[^3] configuration.
+git-dah guesses the name of default branch by checking `init.defaultbranch`[^git-init-defaultbranch] configuration.
 
 Or, and also, you can have extra branches which git-dah respects them as protected, by setting `dah.protectedbranch`.
 This is glob patterns separated by `:`.
@@ -184,7 +116,7 @@ execute git-config like below:
 git config --global dah.protectedbranch "develop:release:release/*"
 ```
 
-[^3]: https://git-scm.com/docs/git-init#Documentation/git-init.txt-code--initial-branchcodeemltbranch-namegtem
+[^git-init-defaultbranch]: https://git-scm.com/docs/git-init#Documentation/git-init.txt-code--initial-branchcodeemltbranch-namegtem
 
 ##### Add prefix to auto-created branch
 
@@ -199,7 +131,25 @@ git config --global dah.branchprefix feature/
 
 In this case, git-dah will generate branch name like `feature/add-something-dah01je3k586pjjq4e5hxb13cwysp`.
 
-### Relative Date Format
+
+### git-stale
+
+```
+List or delete stale branches
+
+Usage: git-stale [OPTIONS] [BRANCHES]...
+
+Arguments:
+  [BRANCHES]...  Select branches with specified prefixes, or select all if unset
+
+Options:
+  -d, --delete         Perform deletion of selected branches
+      --push           Combined with --delete, perform deletion on remote repository instead
+      --since <SINCE>  Select local branch with commit times older than the specified relative time
+  -h, --help           Print help
+```
+
+#### Relative Date Format
 
 Some option in `git-stale` accepts relative date.
 
@@ -219,3 +169,54 @@ Syntax in BNF is roughly described as below:
 <week-suffix> ::= "w" | "week" | "weeks"
 <day-suffix> ::= "d" | "day" | "days"
 ```
+
+### git-whose
+
+```
+find GitHub CODEOWNERS for path(s)
+
+Usage: git-whose [OPTIONS] [PATHSPECS]...
+
+Arguments:
+  [PATHSPECS]...  
+
+Options:
+      --debug  Find out what line affects the result
+  -h, --help   Print help
+```
+
+git-whose is a support tool to improve usability of GitHub CODEOWNERS[^github-codeowners];
+which searches over git index and lists owner(s) specified in `.github/CODEOWNERS` for given files where pathspecs[^git-pathspecs] match.
+Output will be list of pairs consisted of the file path and its code owners.
+
+Note that only committed and/or staged files are listed.
+Becaue git-whose only searches in git index, as described above.
+So, maybe it is inconvinient, git-whose requires `.github/CODEOWNERS` and all other files to be commited or staged,
+but this enables us to search large repository (like monorepo) faster, and to search over bare repository and sparse tree.
+
+[^github-codeowners]: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+[^git-pathspecs]: https://git-scm.com/docs/gitglossary#Documentation/gitglossary.txt-aiddefpathspecapathspec
+
+#### Pathspecs parameter
+
+In non-bare repository for most use cases, relative paths can be passed as pathspecs parameters.
+The paths will be normalized into relative paths from repository root (parent repository to `.git/`) based on
+the current working directory and repository root location.
+Paths cannot point the outside of repository.
+
+```sh
+git init . # assume $PWD is repository root.
+mkdir -p foo/bar .github
+touch foo/baz foo/bar/.keep .github/CODEOWNERS
+git add .
+
+# those are equivalent:
+git whose foo/baz
+(cd foo && git whose baz)
+(cd foo/bar && git whose ../baz)
+
+# ERROR: because path points outside of repo.
+git whose ../outside
+```
+
+In other case, for bare repository, pathspecs are interpreted as-is.
