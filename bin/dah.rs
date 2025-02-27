@@ -15,7 +15,7 @@ struct Cli {
     #[arg(
         long,
         help = "Increase number of commits to scan in history",
-        default_value = "100"
+        default_value = "2000"
     )]
     limit: usize,
     #[arg(
