@@ -16,8 +16,10 @@ use ulid::Ulid;
 
 #[derive(thiserror::Error, Debug)]
 pub enum RepositoryStateError {
-    #[error("commit inspection terminated")]
-    CommitInspectionTerminated,
+    #[error(
+        "the number of commits to inspect was limited by {limit}. Increasing the limit with `--limit` may help."
+    )]
+    HistoryInspectionLimitExceeded { limit: usize },
     #[error("{0}")]
     InternalError(#[from] git2::Error),
 }
@@ -175,7 +177,9 @@ impl Collector for Application {
             let mut count = self.limit;
             for oid in walk {
                 if count == 0 {
-                    return Err(RepositoryStateError::CommitInspectionTerminated);
+                    return Err(RepositoryStateError::HistoryInspectionLimitExceeded {
+                        limit: self.limit,
+                    });
                 }
                 let commit = self.repo.find_commit(oid?)?;
 
