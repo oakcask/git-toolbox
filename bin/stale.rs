@@ -177,7 +177,7 @@ fn main() -> ! {
     env_logger::init();
     match Cli::parse().into_command().and_then(|cmd| cmd.run()) {
         Err(e) => {
-            error!("{}", e.to_string());
+            error!("{}", e);
             exit(1)
         }
         Ok(_) => exit(0),
