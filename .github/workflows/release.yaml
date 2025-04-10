@@ -60,7 +60,7 @@ jobs:
       - name: Enable cross
         run: cargo install cross && echo "CARGO=cross" >> "$GITHUB_ENV"
         if: matrix.build.cross
-      - run: ${{ env.CARGO }} build --release --target=${{ matrix.build.target }} --bins
+      - run: ${{ env.CARGO }} --locked build --release --target=${{ matrix.build.target }} --bins
       - name: Prepare artifacts to upload
         run: |
           mkdir -p dist/${{ matrix.build.target }}
