@@ -94,9 +94,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: dist
-
+      - id: gh-token-gen
+        uses: oakcask/gh-token-gen@v1.0.2
+        with:
+          app-id: ${{ secrets.TOKEN_GEN_APP_ID }}
+          private-key: ${{ secrets.TOKEN_GEN_PRIVATE_KEY }}
       - uses: cycjimmy/semantic-release-action@v4
         with:
           dry_run: ${{ github.ref != 'refs/heads/main' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.gh-token-gen.outputs.token }}
