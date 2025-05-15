@@ -307,7 +307,7 @@ impl Application {
     fn generate_branch_name(&self) -> Result<String, ApplicationError> {
         let head = self.repo.head()?;
         let commit = head.peel_to_commit()?;
-        let mut branch_name = self
+        let prefix = self
             .repo
             .config()?
             .get_string("dah.branchprefix")
@@ -320,21 +320,7 @@ impl Application {
             })?;
 
         let mesg = commit.message().and_then(|m| m.lines().next());
-        if let Some(mesg) = mesg {
-            let mesg = Regex::new(r#"\s+"#).unwrap().replace_all(mesg, "-");
-            let mesg = Regex::new(r#"[^-\w]"#).unwrap().replace_all(&mesg, "_");
-            let mesg = mesg.to_lowercase();
-            branch_name.push_str(&mesg);
-            branch_name.push_str("-dah");
-        } else {
-            branch_name.push_str("dah");
-        }
-
-        let mut random = Ulid::new().to_string();
-        random.make_ascii_lowercase();
-        branch_name.push_str(&random);
-
-        Ok(branch_name)
+        Ok(generate_branch_name_from_commit_message(prefix, mesg))
     }
 
     fn new_git_push_command_with_force_options(&self) -> std::process::Command {
@@ -438,6 +424,28 @@ impl Dispatcher for Application {
     }
 }
 
+fn generate_branch_name_from_commit_message(prefix: String, mesg: Option<&str>) -> String {
+    let mut branch_name = prefix;
+
+    if let Some(mesg) = mesg {
+        let mesg = Regex::new(r#"\s+"#).unwrap().replace_all(mesg, "-");
+        let mesg = Regex::new(r#"[^-_.0-9a-zA-Z]"#)
+            .unwrap()
+            .replace_all(&mesg, "_");
+        let mesg = mesg.to_lowercase();
+        branch_name.push_str(&mesg);
+        branch_name.push_str("-dah");
+    } else {
+        branch_name.push_str("dah");
+    }
+
+    let mut random = Ulid::new().to_string();
+    random.make_ascii_lowercase();
+    branch_name.push_str(&random);
+
+    branch_name
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -446,13 +454,14 @@ mod tests {
         ConfigLevel, ObjectType, Repository, Signature,
     };
 
+    use regex::Regex;
     use tempfile::TempDir;
     use ulid::Ulid;
     use url::Url;
 
     use crate::app::dah::Application;
 
-    use super::{fnmatch, statemachine::Collector};
+    use super::{fnmatch, generate_branch_name_from_commit_message, statemachine::Collector};
 
     #[test]
     fn test_fnmatch() {
@@ -769,5 +778,49 @@ mod tests {
             .with_allow_force_push(true)
             .is_based_on_remote()
             .unwrap());
+    }
+
+    #[test]
+    fn test_generate_branch_name_from_commit_message() {
+        let cases = [
+            ("", Some("fix typos"), r#"\Afix-typos-dah[0-9a-z]{26}\z"#),
+            ("", None, r#"\Adah[0-9a-z]{26}\z"#),
+            (
+                "hotfix/",
+                Some("fix typos"),
+                r#"\Ahotfix/fix-typos-dah[0-9a-z]{26}\z"#,
+            ),
+            ("hotfix/", None, r#"\Ahotfix/dah[0-9a-z]{26}\z"#),
+            (
+                "release/",
+                Some("chore(main): v1.0"),
+                r#"\Arelease/chore_main__-v1.0-dah[0-9a-z]{26}\z"#,
+            ),
+            ("release/", None, r#"\Arelease/dah[0-9a-z]{26}\z"#),
+            // preserves underscore
+            ("", Some("_"), r#"\A_-dah[0-9a-z]{26}\z"#),
+            // create shell safe string
+            (
+                "",
+                Some("あaいiうu\u{2764}\u{FE0F}\u{200D}\u{1F525}heart-on-fire"),
+                r#"\A_a_i_u____heart-on-fire-dah[0-9a-z]{26}\z"#,
+            ),
+            (
+                "",
+                Some(r#"~`!@#$%^&*()+=[]{}\|;:'"<>,?/"#),
+                r#"\A_____________________________-dah[0-9a-z]{26}\z"#,
+            ),
+        ];
+        for (prefix, message, expected) in cases.into_iter() {
+            let prefix = String::from(prefix);
+            let actual = generate_branch_name_from_commit_message(prefix, message);
+            let expected = Regex::new(expected).unwrap();
+            assert!(
+                expected.is_match(&actual),
+                "expected to match {:?} but got {:?}",
+                expected,
+                actual
+            );
+        }
     }
 }
