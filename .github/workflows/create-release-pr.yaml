@@ -30,7 +30,7 @@ jobs:
       - name: Prepare semantic-release for Rust
         run: semantic-release-cargo prepare ${{ needs.get-next-version.outputs.new-release-version }}
       - id: gh-token-gen
-        uses: oakcask/gh-token-gen@v2.0.5
+        uses: oakcask/gh-token-gen@v2.0.6
         with:
           app-id: ${{ secrets.TOKEN_GEN_APP_ID }}
           private-key: ${{ secrets.TOKEN_GEN_PRIVATE_KEY }}
