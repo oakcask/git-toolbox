@@ -14,7 +14,7 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo fmt
+      - run: cargo --locked fmt
       - id: gh-token-gen
         uses: oakcask/gh-token-gen@v2.0.7
         with:
@@ -22,12 +22,12 @@ jobs:
           private-key: ${{ secrets.TOKEN_GEN_PRIVATE_KEY }}
       - uses: int128/update-generated-files-action@v2
         with:
-          commit-message: "style: `cargo fmt`"
+          commit-message: "style: `cargo --locked fmt`"
           token: ${{ steps.gh-token-gen.outputs.token }}
-      - run: cargo clippy --fix
+      - run: cargo --locked clippy --fix
       - uses: int128/update-generated-files-action@v2
         with:
-          commit-message: "fix: `cargo clippy --fix`"
+          commit-message: "fix: `cargo --locked clippy --fix`"
           token: ${{ steps.gh-token-gen.outputs.token }}
 
   test:
