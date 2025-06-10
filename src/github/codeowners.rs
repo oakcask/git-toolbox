@@ -213,17 +213,18 @@ impl<D: DebugInfo> CodeOwners<D> {
 
     /// Read CODEOWNERS file from repository's index.
     pub fn try_from_repo(repo: &Repository) -> Result<Self, CodeOwnersError> {
-        let path = Path::new(".github/CODEOWNERS");
-
-        if let Some(entry) = repo.index()?.get_path(path, IndexStage::Normal.into()) {
-            let blob = repo
-                .find_object(entry.id, Some(git2::ObjectType::Blob))?
-                .into_blob()
-                .unwrap();
-            Ok(Self::try_from_bufread(blob.content())?)
-        } else {
-            Err(CodeOwnersError::NotIndexed)
+        let paths = [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"];
+        for path in paths {
+            let path = Path::new(path);
+            if let Some(entry) = repo.index()?.get_path(path, IndexStage::Normal.into()) {
+                let blob = repo
+                    .find_object(entry.id, Some(git2::ObjectType::Blob))?
+                    .into_blob()
+                    .unwrap();
+                return Self::try_from_bufread(blob.content());
+            }
         }
+        Err(CodeOwnersError::NotIndexed)
     }
 
     pub fn debug<'a>(&'a self, path: &str) -> impl Iterator<Item = Match<'a, D>> {
