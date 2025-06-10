@@ -213,11 +213,7 @@ impl<D: DebugInfo> CodeOwners<D> {
 
     /// Read CODEOWNERS file from repository's index.
     pub fn try_from_repo(repo: &Repository) -> Result<Self, CodeOwnersError> {
-        let paths = [
-            ".github/CODEOWNERS",
-            "CODEOWNERS",
-            "docs/CODEOWNERS",
-        ];
+        let paths = [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"];
         for path in paths {
             let path = Path::new(path);
             if let Some(entry) = repo.index()?.get_path(path, IndexStage::Normal.into()) {

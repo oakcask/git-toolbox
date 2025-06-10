@@ -9,9 +9,7 @@ use tempfile::TempDir;
 #[case(".github/CODEOWNERS")]
 #[case("CODEOWNERS")]
 #[case("docs/CODEOWNERS")]
-fn codeowner_try_from_repo_fails_when_codeowners_file_is_not_indexed_(
-    #[case] path: &str
-) {
+fn codeowner_try_from_repo_fails_when_codeowners_file_is_not_indexed_(#[case] path: &str) {
     let tmpdir = TempDir::new().unwrap();
     let root = tmpdir.path();
 
@@ -102,10 +100,7 @@ fn codeowner_try_from_repo_find_codeowners_file_in_priority(
     );
     git_add(&repo, prior);
     git_add(&repo, after);
-    
+
     let co = CodeOwners::<()>::try_from_repo(&repo).unwrap();
-    assert_eq!(
-        co.find_owners("a.js"),
-        Some(&vec![String::from("owner-1")])
-    );
+    assert_eq!(co.find_owners("a.js"), Some(&vec![String::from("owner-1")]));
 }
