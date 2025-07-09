@@ -273,10 +273,7 @@ mod tests {
                     );
                 }
                 (Err(e_got), Err(e_want)) => {
-                    assert_eq!(
-                        e_got, e_want,
-                        "#{idx}: wants {e_want} but got {e_got}"
-                    );
+                    assert_eq!(e_got, e_want, "#{idx}: wants {e_want} but got {e_got}");
                 }
                 _ => {
                     unreachable!("#{}: didn't match Result", idx);

@@ -51,9 +51,7 @@ impl Command {
                 let branch_name = branch.get().name();
 
                 if let (Some(remote_name), Some(branch_name)) = (upstream, branch_name) {
-                    info!(
-                        "branch '{branch_name}' will be deleted from {remote_name}"
-                    );
+                    info!("branch '{branch_name}' will be deleted from {remote_name}");
 
                     // refspec has <src>:<dst> format, so leaving <src> empty will delete <dst>.
                     let refspec = format!(":{branch_name}");
@@ -134,9 +132,7 @@ impl Command {
             None => Ok(false),
             Some(branch_name) => {
                 if branch.is_head() {
-                    info!(
-                        "branch '{branch_name}' ignored. NOTE: HEAD branch is always ignored."
-                    );
+                    info!("branch '{branch_name}' ignored. NOTE: HEAD branch is always ignored.");
                     Ok(false)
                 } else if self.branches.is_empty() {
                     Ok(true)
