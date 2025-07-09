@@ -110,7 +110,7 @@ mod tests {
 
         for (idx, (a, b, op)) in cases.into_iter().enumerate() {
             let got = op(a.into(), b.into());
-            assert!(got, "#{} for {:?}(a = {:?}, b = {:?})", idx, op, a, b);
+            assert!(got, "#{idx} for {op:?}(a = {a:?}, b = {b:?})");
         }
     }
 }

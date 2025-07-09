@@ -113,10 +113,7 @@ mod tests {
             assert_eq!(
                 got.to_str(),
                 Some(want),
-                "#{} wants {} but got {:?}",
-                idx,
-                want,
-                got
+                "#{idx} wants {want} but got {got:?}"
             );
         }
     }
@@ -156,13 +153,7 @@ mod tests {
             assert_eq!(
                 got,
                 Ok(normalized_path.to_owned()),
-                "#{}: wanted Ok({:?}) for repo={:?}, cwd={:?} and path={:?}, but got {:?}",
-                idx,
-                normalized_path,
-                repo_root,
-                cwd,
-                path,
-                got
+                "#{idx}: wanted Ok({normalized_path:?}) for repo={repo_root:?}, cwd={cwd:?} and path={path:?}, but got {got:?}"
             );
         }
 

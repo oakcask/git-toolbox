@@ -95,11 +95,7 @@ mod tests {
             let got = Record::try_from(input.to_string());
             assert!(
                 got == want,
-                "#{}: wants {:?} for {}, but got {:?}",
-                i,
-                want,
-                input,
-                got
+                "#{i}: wants {want:?} for {input}, but got {got:?}"
             );
         }
     }

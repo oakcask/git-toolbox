@@ -455,8 +455,7 @@ mod tests {
             match Action::new(&given) {
                 Ok(s) => assert_eq!(
                     expected, s,
-                    "#{}: from {:?}, expected {:?} but got {:?}",
-                    i, given, expected, s
+                    "#{i}: from {given:?}, expected {expected:?} but got {s:?}"
                 ),
                 e => unreachable!("#{}: from {:?}, expected Ok but got {:?}", i, given, e),
             }

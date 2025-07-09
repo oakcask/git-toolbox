@@ -44,11 +44,11 @@ impl Application for FinderApplication {
                         println!("{}: {}", path, owners.join(", "));
                     }
                     None => {
-                        println!("{}:", path);
+                        println!("{path}:");
                     }
                 }
             } else {
-                log::error!("cannot convet {:?} into utf-8 string.", path)
+                log::error!("cannot convet {path:?} into utf-8 string.")
             }
         }
 
@@ -90,14 +90,14 @@ impl Application for DebugApplication {
                 // export in TOML
                 for e in self.codeowners.debug(path) {
                     let debug = e.debug_info();
-                    println!("[[{:?}]]", path);
+                    println!("[[{path:?}]]");
                     println!("line = {:?}", debug.line_no);
                     println!("rule = {:?}", debug.line);
                     println!("owners = {:?}", e.owners());
                     println!("effective = {:?}", e.is_effective());
                 }
             } else {
-                log::error!("cannot convet {:?} into utf-8 string.", path)
+                log::error!("cannot convet {path:?} into utf-8 string.")
             }
         }
 

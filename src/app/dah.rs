@@ -285,7 +285,7 @@ impl Application {
 
         if self.fetch_first {
             if let Err(e) = self.run_command(std::process::Command::new("git").arg("fetch")) {
-                error!("fetch failed: {:?}; but we'll continue.", e);
+                error!("fetch failed: {e:?}; but we'll continue.");
             }
         }
 
@@ -336,7 +336,7 @@ impl Application {
 
     fn run_command(&self, command: &mut std::process::Command) -> Result<(), ApplicationError> {
         let cmdline = get_command_line(command);
-        info!("invoking {:?}", cmdline);
+        info!("invoking {cmdline:?}");
 
         command
             .stdin(Stdio::inherit())
@@ -499,8 +499,7 @@ mod tests {
         if let Some(ulid) = got.strip_prefix("initial-commit-dah") {
             assert!(
                 Ulid::from_string(ulid).is_ok(),
-                "expected {:?} to have ULID suffix",
-                got
+                "expected {got:?} to have ULID suffix"
             );
         } else {
             unreachable!(
@@ -544,8 +543,7 @@ mod tests {
         if let Some(ulid) = got.strip_prefix("feature/add-something-dah") {
             assert!(
                 Ulid::from_string(ulid).is_ok(),
-                "expected {:?} to have ULID suffix",
-                got
+                "expected {got:?} to have ULID suffix"
             );
         } else {
             unreachable!(
@@ -817,9 +815,7 @@ mod tests {
             let expected = Regex::new(expected).unwrap();
             assert!(
                 expected.is_match(&actual),
-                "expected to match {:?} but got {:?}",
-                expected,
-                actual
+                "expected to match {expected:?} but got {actual:?}"
             );
         }
     }

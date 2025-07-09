@@ -26,7 +26,7 @@ struct Cli {
 }
 
 fn parse_reltime(arg: &str) -> Result<Reltime, String> {
-    Reltime::try_from(arg).map_err(|e| format!("while parsing {} got error: {}", arg, e))
+    Reltime::try_from(arg).map_err(|e| format!("while parsing {arg} got error: {e}"))
 }
 
 struct Command {
@@ -52,12 +52,11 @@ impl Command {
 
                 if let (Some(remote_name), Some(branch_name)) = (upstream, branch_name) {
                     info!(
-                        "branch '{}' will be deleted from {}",
-                        branch_name, remote_name
+                        "branch '{branch_name}' will be deleted from {remote_name}"
                     );
 
                     // refspec has <src>:<dst> format, so leaving <src> empty will delete <dst>.
-                    let refspec = format!(":{}", branch_name);
+                    let refspec = format!(":{branch_name}");
                     if let Some(branches) = refspecs.get_mut(remote_name) {
                         branches.push(refspec)
                     } else {
@@ -72,16 +71,16 @@ impl Command {
                 let mut callbacks = RemoteCallbacks::new();
                 callbacks.push_update_reference(|refname, status| {
                     if let Some(error) = status {
-                        warn!("push failed: {}, status = {}", refname, error);
+                        warn!("push failed: {refname}, status = {error}");
                     } else {
-                        info!("pushed: {}", refname);
+                        info!("pushed: {refname}");
                     }
                     Ok(())
                 });
                 let mut push_options = PushOptions::new();
                 push_options.remote_callbacks(callbacks);
                 if let Err(e) = remote.push(refspecs.as_slice(), Some(&mut push_options)) {
-                    warn!("failed to remove branches from {}: {}", remote_name, e)
+                    warn!("failed to remove branches from {remote_name}: {e}")
                 }
             }
         } else if self.delete {
@@ -89,7 +88,7 @@ impl Command {
                 if let Some(branch_name) = branch.get().name() {
                     let branch_name = branch_name.to_owned();
                     if let Err(e) = branch.delete() {
-                        warn!("failed to remove branch '{}': {}", branch_name, e)
+                        warn!("failed to remove branch '{branch_name}': {e}")
                     }
                 }
                 Ok(())
@@ -136,8 +135,7 @@ impl Command {
             Some(branch_name) => {
                 if branch.is_head() {
                     info!(
-                        "branch '{}' ignored. NOTE: HEAD branch is always ignored.",
-                        branch_name
+                        "branch '{branch_name}' ignored. NOTE: HEAD branch is always ignored."
                     );
                     Ok(false)
                 } else if self.branches.is_empty() {
@@ -177,7 +175,7 @@ fn main() -> ! {
     env_logger::init();
     match Cli::parse().into_command().and_then(|cmd| cmd.run()) {
         Err(e) => {
-            error!("{}", e);
+            error!("{e}");
             exit(1)
         }
         Ok(_) => exit(0),

@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .into_app()
         .and_then(|cmd| cmd.run().map_err(|e| e.into()))
     {
-        eprintln!("{}", e);
+        eprintln!("{e}");
         Err(e)
     } else {
         Ok(())

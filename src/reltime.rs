@@ -165,8 +165,7 @@ mod tests {
 
             assert_eq!(
                 dt_want, got,
-                "wanted {} from {} before {} (#{})",
-                want, now, reltime, idx
+                "wanted {want} from {now} before {reltime} (#{idx})"
             );
         }
 
