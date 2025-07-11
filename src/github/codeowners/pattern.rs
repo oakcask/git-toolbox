@@ -79,7 +79,7 @@ impl Pattern {
                     } else {
                         let mut must_escape = Vec::new();
                         write!(&mut re_out, r"(?:\A|/)").unwrap();
-                        write!(&mut must_escape, "{}", c).unwrap();
+                        write!(&mut must_escape, "{c}").unwrap();
                         State::Default {
                             re_out,
                             must_escape,
@@ -106,7 +106,7 @@ impl Pattern {
                             must_escape: Vec::new(),
                         }
                     } else {
-                        write!(&mut must_escape, "{}", c).unwrap();
+                        write!(&mut must_escape, "{c}").unwrap();
                         State::Default {
                             re_out,
                             must_escape,
@@ -128,7 +128,7 @@ impl Pattern {
                     } else {
                         let mut must_escape = Vec::new();
                         write!(&mut re_out, r"[^/]*").unwrap();
-                        write!(&mut must_escape, "{}", c).unwrap();
+                        write!(&mut must_escape, "{c}").unwrap();
                         State::Default {
                             re_out,
                             must_escape,
@@ -150,7 +150,7 @@ impl Pattern {
                     } else {
                         let mut must_escape = Vec::new();
                         write!(&mut re_out, r"[^/]*").unwrap();
-                        write!(&mut must_escape, "{}", c).unwrap();
+                        write!(&mut must_escape, "{c}").unwrap();
                         State::Default {
                             re_out,
                             must_escape,
@@ -170,7 +170,7 @@ impl Pattern {
                         }
                     } else {
                         let mut must_escape = Vec::new();
-                        write!(&mut must_escape, "{}", c).unwrap();
+                        write!(&mut must_escape, "{c}").unwrap();
                         State::Default {
                             re_out,
                             must_escape,
@@ -192,7 +192,7 @@ impl Pattern {
                     } else {
                         let mut must_escape = Vec::new();
                         write!(&mut re_out, r"/").unwrap();
-                        write!(&mut must_escape, "{}", c).unwrap();
+                        write!(&mut must_escape, "{c}").unwrap();
                         State::Default {
                             re_out,
                             must_escape,
@@ -269,18 +269,11 @@ mod tests {
                     assert_eq!(
                         pat_got,
                         pat_want.to_string(),
-                        "#{}: wants {} but got {}",
-                        idx,
-                        pat_want,
-                        pat_got
+                        "#{idx}: wants {pat_want} but got {pat_got}"
                     );
                 }
                 (Err(e_got), Err(e_want)) => {
-                    assert_eq!(
-                        e_got, e_want,
-                        "#{}: wants {} but got {}",
-                        idx, e_want, e_got
-                    );
+                    assert_eq!(e_got, e_want, "#{idx}: wants {e_want} but got {e_got}");
                 }
                 _ => {
                     unreachable!("#{}: didn't match Result", idx);
@@ -392,19 +385,14 @@ mod tests {
             let pat = Pattern::new(pat_s.to_string());
             assert!(
                 pat.is_ok(),
-                "#{}: wanted Ok but got {:?} for given pat:{:?} path:{:?}",
-                idx,
-                pat,
-                pat_s,
-                path
+                "#{idx}: wanted Ok but got {pat:?} for given pat:{pat_s:?} path:{path:?}"
             );
 
             let pat = pat.unwrap();
             let got = pat.is_match(path);
             assert_eq!(
                 want, got,
-                "#{}: wanted {} but got {}; pat = {:?} for given pat:{:?} path:{:?}",
-                idx, want, got, pat, pat_s, path
+                "#{idx}: wanted {want} but got {got}; pat = {pat:?} for given pat:{pat_s:?} path:{path:?}"
             );
         }
     }
