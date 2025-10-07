@@ -5,7 +5,7 @@ use crate::git::{GitTime, HeadRef, RemoteRef};
 use chrono::{DateTime, FixedOffset};
 use fnmatch_sys::{self, FNM_NOESCAPE};
 use git2::{Branch, ErrorCode, Repository, Sort, Status, StatusOptions, StatusShow};
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use regex::Regex;
 use statemachine::StepResult;
 use statemachine::{Action, Collector, Dispatcher};
@@ -69,7 +69,7 @@ impl Collector for Application {
         let head_ref = HeadRef::new(self.repo.head()?.name().unwrap().to_owned()).unwrap();
 
         if let Some(branch) = head_ref.branch() {
-            for remote in self.repo.remotes()?.into_iter().filter_map(|o| o) {
+            for remote in self.repo.remotes()?.into_iter().flatten() {
                 let mut remote = self.repo.find_remote(remote)?;
                 let mut cb = git2::RemoteCallbacks::new();
                 let config = self.repo.config()?;

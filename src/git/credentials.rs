@@ -1,10 +1,10 @@
 use std::{
     fs::File,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use git2::Cred;
-use log::{info, warn};
+use log::info;
 
 #[derive(Default)]
 struct SshState {
