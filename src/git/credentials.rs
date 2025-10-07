@@ -1,6 +1,9 @@
-use std::{fs::File, path::{Path, PathBuf}};
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+};
 
-use git2::{Cred};
+use git2::Cred;
 use log::{info, warn};
 
 #[derive(Default)]
@@ -13,7 +16,7 @@ enum Method {
     SshAgent,
     SshId(SshState),
     Helper,
-    Default
+    Default,
 }
 
 pub struct CredentialCallback {
@@ -23,10 +26,18 @@ pub struct CredentialCallback {
 
 impl CredentialCallback {
     pub fn new(config: git2::Config) -> Self {
-        CredentialCallback { config, next_method: None }
+        CredentialCallback {
+            config,
+            next_method: None,
+        }
     }
 
-    pub fn try_next(&mut self, url: &str, username: Option<&str>, allowed_types: git2::CredentialType) -> Result<Cred, git2::Error> {
+    pub fn try_next(
+        &mut self,
+        url: &str,
+        username: Option<&str>,
+        allowed_types: git2::CredentialType,
+    ) -> Result<Cred, git2::Error> {
         match self.next_method.as_mut() {
             Some(Method::Helper) => {
                 self.next_method = Some(Method::Unavailable); // never retry if the helper fails.
@@ -34,12 +45,9 @@ impl CredentialCallback {
                 Cred::credential_helper(&self.config, url, username)
             }
             Some(Method::SshAgent) => {
-                self.next_method = Some(Method::SshId(SshState { id_candidates: vec![
-                    "id_ecdsa",
-                    "id_ecdsa-sk",
-                    "id_ed25519",
-                    "id_ed25519-sk",
-                ]}));
+                self.next_method = Some(Method::SshId(SshState {
+                    id_candidates: vec!["id_ecdsa", "id_ecdsa-sk", "id_ed25519", "id_ed25519-sk"],
+                }));
                 Cred::ssh_key_from_agent(username.unwrap_or("git"))
             }
             Some(Method::SshId(state)) => {
@@ -52,7 +60,7 @@ impl CredentialCallback {
                     if let Err(_) = File::open(path) {
                         self.try_next(url, username, allowed_types)
                     } else {
-                        Cred::ssh_key(username.unwrap_or("git"), None, path, None)                       
+                        Cred::ssh_key(username.unwrap_or("git"), None, path, None)
                     }
                 } else {
                     Err(git2::Error::from_str("no valid credentials available"))

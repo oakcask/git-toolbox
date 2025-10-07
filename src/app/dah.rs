@@ -74,7 +74,9 @@ impl Collector for Application {
                 let mut cb = git2::RemoteCallbacks::new();
                 let config = self.repo.config()?;
                 let mut cred_cb = CredentialCallback::new(config);
-                cb.credentials(move |url, username, allowed_types| cred_cb.try_next(url, username, allowed_types));
+                cb.credentials(move |url, username, allowed_types| {
+                    cred_cb.try_next(url, username, allowed_types)
+                });
                 remote.connect_auth(git2::Direction::Fetch, Some(cb), None)?;
 
                 if let Ok(remote_default_branch) = remote.default_branch() {
@@ -82,7 +84,7 @@ impl Collector for Application {
                         let remote_default_branch = HeadRef::new(remote_default_branch).unwrap();
                         let remote_default_branch = remote_default_branch.branch().unwrap();
                         if branch == remote_default_branch {
-                            return Ok(true)
+                            return Ok(true);
                         }
                     }
                 }
@@ -611,14 +613,7 @@ mod tests {
         let tree = origin.treebuilder(None)?;
         let tree = tree.write()?;
         let tree = origin.find_tree(tree)?;
-        origin.commit(
-            Some("refs/heads/main"),
-            &author,
-            &author,
-            "c1",
-            &tree,
-            &[],
-        )?;
+        origin.commit(Some("refs/heads/main"), &author, &author, "c1", &tree, &[])?;
         origin.set_head("refs/heads/main")?;
 
         let origin_path = origin_path.to_str().unwrap();
@@ -634,7 +629,10 @@ mod tests {
             local.set_head("refs/heads/main")?;
         }
 
-        assert!(Application::new(local).is_remote_head()?, "expected local's HEAD is remote HEAD");
+        assert!(
+            Application::new(local).is_remote_head()?,
+            "expected local's HEAD is remote HEAD"
+        );
 
         Ok(())
     }

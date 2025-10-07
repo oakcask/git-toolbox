@@ -286,7 +286,7 @@ mod tests {
                 if let Some(upstream) = &self.upstream {
                     if let Some((o, _, _, is_head)) = upstream {
                         if branch == o.branch() && *is_head {
-                            return Ok(true)
+                            return Ok(true);
                         }
                     }
                 }
