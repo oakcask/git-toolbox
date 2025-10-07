@@ -29,6 +29,9 @@ pub trait Collector {
     /// name of default branch
     fn default_branch(&self) -> Result<Option<String>, Self::Error>;
 
+    /// check if the HEAD is remote's HEAD
+    fn is_remote_head(&self) -> Result<bool, Self::Error>;
+
     /// check if the HEAD is protected
     fn is_head_protected(&self) -> Result<bool, Self::Error>;
 
@@ -89,6 +92,10 @@ impl Action {
             }
             if let Some(true) = default_branch.map(|b| head_branch == b) {
                 info!("found local commits on default branch");
+                return Ok(Self::RenameBranch);
+            }
+            if collector.is_remote_head()? {
+                info!("found local commits on remote's default branch");
                 return Ok(Self::RenameBranch);
             }
             if collector.is_head_protected()? {
@@ -198,7 +205,7 @@ mod tests {
         default_branch: Option<Option<String>>,
         protected_branches: Vec<String>,
         head_ref: Option<HeadRef>,
-        upstream: Option<Option<(RemoteRef, bool, bool)>>,
+        upstream: Option<Option<(RemoteRef, bool, bool, bool)>>,
         status: Option<Status>,
     }
 
@@ -235,12 +242,14 @@ mod tests {
             upstream_ref: &str,
             is_synchronized: bool,
             is_based_on_remote: bool,
+            is_head: bool,
         ) -> Self {
             Self {
                 upstream: Some(Some((
                     RemoteRef::new(upstream_ref).unwrap(),
                     is_synchronized,
                     is_based_on_remote,
+                    is_head,
                 ))),
                 ..self
             }
@@ -272,6 +281,20 @@ mod tests {
             }
         }
 
+        fn is_remote_head(&self) -> Result<bool, Self::Error> {
+            if let Some(Some(branch)) = self.head_ref.as_ref().map(|o| o.branch()) {
+                if let Some(upstream) = &self.upstream {
+                    if let Some((o, _, _, is_head)) = upstream {
+                        if branch == o.branch() && *is_head {
+                            return Ok(true)
+                        }
+                    }
+                }
+            }
+
+            Ok(false)
+        }
+
         fn is_head_protected(&self) -> Result<bool, Self::Error> {
             if let Some(o) = &self.head_ref {
                 if let Some(br) = o.branch() {
@@ -292,7 +315,7 @@ mod tests {
 
         fn upstream_ref(&self) -> Result<Option<RemoteRef>, Self::Error> {
             if let Some(upstream) = &self.upstream {
-                if let Some((o, _, _)) = upstream {
+                if let Some((o, _, _, _)) = upstream {
                     Ok(Some(o.clone()))
                 } else {
                     Ok(None)
@@ -303,7 +326,7 @@ mod tests {
         }
 
         fn is_synchronized(&self) -> Result<bool, Self::Error> {
-            if let Some(Some((_, o, _))) = &self.upstream {
+            if let Some(Some((_, o, _, _))) = &self.upstream {
                 Ok(*o)
             } else {
                 Ok(false)
@@ -311,7 +334,7 @@ mod tests {
         }
 
         fn is_based_on_remote(&self) -> Result<bool, Self::Error> {
-            if let Some(Some((_, _, o))) = &self.upstream {
+            if let Some(Some((_, _, o, _))) = &self.upstream {
                 Ok(*o)
             } else {
                 Ok(false)
@@ -335,7 +358,7 @@ mod tests {
                 MockState::default()
                     .with_default_branch("main")
                     .with_head_ref("refs/heads/foo")
-                    .with_upstream_ref("refs/remotes/origin/foo", true, true)
+                    .with_upstream_ref("refs/remotes/origin/foo", true, true, false)
                     .with_status(Status::CONFLICTED),
                 Action::ResolveConflict,
             ),
@@ -344,7 +367,7 @@ mod tests {
                 MockState::default()
                     .with_default_branch("main")
                     .with_head_ref("refs/heads/main")
-                    .with_upstream_ref("refs/remotes/origin/main", true, true)
+                    .with_upstream_ref("refs/remotes/origin/main", true, true, false)
                     .with_status(Status::CURRENT),
                 Action::None,
             ),
@@ -353,7 +376,7 @@ mod tests {
                 MockState::default()
                     .with_default_branch("main")
                     .with_head_ref("refs/heads/main")
-                    .with_upstream_ref("refs/remotes/origin/main", false, true)
+                    .with_upstream_ref("refs/remotes/origin/main", false, true, false)
                     .with_status(Status::CURRENT),
                 Action::RenameBranch,
             ),
@@ -362,17 +385,27 @@ mod tests {
                 MockState::default()
                     .with_default_branch("main")
                     .with_head_ref("refs/heads/develop")
-                    .with_upstream_ref("refs/remotes/origin/develop", true, true)
+                    .with_upstream_ref("refs/remotes/origin/develop", true, true, false)
                     .with_protected_branch("develop")
                     .with_status(Status::CURRENT),
                 Action::None,
+            ),
+            // on a branch with remote's default branch -> should rename the branch
+            (
+                MockState::default()
+                    .with_default_branch("main")
+                    .with_head_ref("refs/heads/develop")
+                    .with_upstream_ref("refs/remotes/origin/develop", false, true, true)
+                    .with_protected_branch("main")
+                    .with_status(Status::CURRENT),
+                Action::RenameBranch,
             ),
             // on default branch with local changes -> should rename the branch
             (
                 MockState::default()
                     .with_default_branch("main")
                     .with_head_ref("refs/heads/develop")
-                    .with_upstream_ref("refs/remotes/origin/develop", false, true)
+                    .with_upstream_ref("refs/remotes/origin/develop", false, true, false)
                     .with_protected_branch("develop")
                     .with_status(Status::CURRENT),
                 Action::RenameBranch,
@@ -403,7 +436,7 @@ mod tests {
                 MockState::default()
                     .with_default_branch("main")
                     .with_head_ref("refs/heads/foo")
-                    .with_upstream_ref("refs/remotes/origin/foo", false, true)
+                    .with_upstream_ref("refs/remotes/origin/foo", false, true, false)
                     .with_status(Status::CURRENT),
                 Action::Push {
                     head_ref: HeadRef::new("refs/heads/foo").unwrap(),
@@ -415,7 +448,7 @@ mod tests {
                 MockState::default()
                     .with_default_branch("main")
                     .with_head_ref("refs/heads/foo")
-                    .with_upstream_ref("refs/remotes/origin/foo", false, false)
+                    .with_upstream_ref("refs/remotes/origin/foo", false, false, false)
                     .with_status(Status::CURRENT),
                 Action::Rebase {
                     head_ref: HeadRef::new("refs/heads/foo").unwrap(),
@@ -427,7 +460,7 @@ mod tests {
                 MockState::default()
                     .with_default_branch("main")
                     .with_head_ref("refs/heads/foo")
-                    .with_upstream_ref("refs/remotes/origin/foo", true, true)
+                    .with_upstream_ref("refs/remotes/origin/foo", true, true, false)
                     .with_status(Status::WT_MODIFIED),
                 Action::StageChanges,
             ),
@@ -436,7 +469,7 @@ mod tests {
                 MockState::default()
                     .with_default_branch("main")
                     .with_head_ref("refs/heads/foo")
-                    .with_upstream_ref("refs/remotes/origin/foo", true, true)
+                    .with_upstream_ref("refs/remotes/origin/foo", true, true, false)
                     .with_status(Status::INDEX_NEW),
                 Action::Commit,
             ),
@@ -445,7 +478,7 @@ mod tests {
                 MockState::default()
                     .with_default_branch("main")
                     .with_head_ref("refs/heads/foo")
-                    .with_upstream_ref("refs/remotes/origin/foo", true, true)
+                    .with_upstream_ref("refs/remotes/origin/foo", true, true, false)
                     .with_status(Status::CURRENT),
                 Action::None,
             ),

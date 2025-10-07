@@ -1,10 +1,11 @@
 mod statemachine;
 
+use crate::git::credentials::CredentialCallback;
 use crate::git::{GitTime, HeadRef, RemoteRef};
 use chrono::{DateTime, FixedOffset};
 use fnmatch_sys::{self, FNM_NOESCAPE};
 use git2::{Branch, ErrorCode, Repository, Sort, Status, StatusOptions, StatusShow};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use regex::Regex;
 use statemachine::StepResult;
 use statemachine::{Action, Collector, Dispatcher};
@@ -62,6 +63,33 @@ impl Collector for Application {
                     Err(e.into())
                 }
             })
+    }
+
+    fn is_remote_head(&self) -> Result<bool, Self::Error> {
+        let head_ref = HeadRef::new(self.repo.head()?.name().unwrap().to_owned()).unwrap();
+
+        if let Some(branch) = head_ref.branch() {
+            for remote in self.repo.remotes()?.into_iter().filter_map(|o| o) {
+                let mut remote = self.repo.find_remote(remote)?;
+                let mut cb = git2::RemoteCallbacks::new();
+                let config = self.repo.config()?;
+                let mut cred_cb = CredentialCallback::new(config);
+                cb.credentials(move |url, username, allowed_types| cred_cb.try_next(url, username, allowed_types));
+                remote.connect_auth(git2::Direction::Fetch, Some(cb), None)?;
+
+                if let Ok(remote_default_branch) = remote.default_branch() {
+                    if let Some(remote_default_branch) = remote_default_branch.as_str() {
+                        let remote_default_branch = HeadRef::new(remote_default_branch).unwrap();
+                        let remote_default_branch = remote_default_branch.branch().unwrap();
+                        if branch == remote_default_branch {
+                            return Ok(true)
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(false)
     }
 
     fn is_head_protected(&self) -> Result<bool, Self::Error> {
@@ -567,6 +595,46 @@ mod tests {
         let got = got.as_deref();
 
         assert_eq!(Some("foo"), got);
+
+        Ok(())
+    }
+
+    #[test]
+    fn application_is_remote_head() -> Result<(), Box<dyn std::error::Error>> {
+        let origin = TempDir::new()?;
+        let origin_path = origin.path();
+        let origin = Repository::init_bare(origin_path)?;
+        let local = TempDir::new()?;
+        let local = Repository::init_bare(local.path())?;
+
+        let author = Signature::now("foo", "foo@example.com")?;
+        let tree = origin.treebuilder(None)?;
+        let tree = tree.write()?;
+        let tree = origin.find_tree(tree)?;
+        origin.commit(
+            Some("refs/heads/main"),
+            &author,
+            &author,
+            "c1",
+            &tree,
+            &[],
+        )?;
+        origin.set_head("refs/heads/main")?;
+
+        let origin_path = origin_path.to_str().unwrap();
+        {
+            // git remote add origin file://{origin_path}
+            let mut remote = local.remote("origin", &format!("file://{origin_path}"))?;
+            // git fetch origin main:refs/remotes/origin/main
+            remote.fetch(&["main:refs/remotes/origin/main"], None, None)?;
+            // git switch -c main --track origin/main
+            let remote_branch = local.find_branch("origin/main", git2::BranchType::Remote)?;
+            let remote_head = remote_branch.get().peel_to_commit()?;
+            let _ = local.branch("main", &remote_head, true)?;
+            local.set_head("refs/heads/main")?;
+        }
+
+        assert!(Application::new(local).is_remote_head()?, "expected local's HEAD is remote HEAD");
 
         Ok(())
     }
