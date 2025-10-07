@@ -1,7 +1,4 @@
-use std::{
-    fs::File,
-    path::PathBuf,
-};
+use std::{fs::File, path::PathBuf};
 
 use git2::Cred;
 use log::info;
