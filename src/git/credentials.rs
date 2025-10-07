@@ -54,7 +54,7 @@ impl CredentialCallback {
                     path.push(key);
                     let path = path.as_path();
                     info!("trying ssh key {path:?}");
-                    if let Err(_) = File::open(path) {
+                    if File::open(path).is_err() {
                         self.try_next(url, username, allowed_types)
                     } else {
                         Cred::ssh_key(username.unwrap_or("git"), None, path, None)
