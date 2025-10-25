@@ -68,7 +68,7 @@ jobs:
             -type f \! -name '.cargo-lock' \! -name '*.d' -print0 \
             | xargs -I{} -r -0 cp {} dist/${{ matrix.build.target }}/
           tar -C dist/${{ matrix.build.target }} -czf dist/${{ matrix.build.target }}.tar.gz ./
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.build.target }}.tar.gz
           path: |
@@ -91,7 +91,7 @@ jobs:
     if: ${{ needs.get-next-version.outputs.new-release-published == 'true' && needs.cargo-toml-updated.outputs.updated == 'true' }}
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           path: dist
       - id: gh-token-gen
