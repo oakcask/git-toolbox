@@ -13,7 +13,7 @@ jobs:
   get-next-version:
     permissions:
       contents: write
-    uses: semantic-release-action/next-release-version/.github/workflows/next-release-version.yml@v4
+    uses: semantic-release-action/next-release-version/.github/workflows/next-release-version.yml@0cdefe1224944c23645e5131f7a5189672c0df92 # v4
 
   cargo-toml-updated:
     runs-on: ubuntu-latest
@@ -22,8 +22,8 @@ jobs:
     outputs:
       updated: ${{ steps.check-updated.outputs.updated }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: EricCrosson/install-github-release-binary@v2
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: EricCrosson/install-github-release-binary@3b6741ed37d8bdb9539ff5234f8c3b70805d04b5 # v2
         with:
           targets: semantic-release-cargo/semantic-release-cargo@v2.2.96
         if: needs.get-next-version.outputs.new-release-published == 'true'
@@ -55,8 +55,8 @@ jobs:
     env:
       CARGO: "cargo"
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1
       - name: Enable cross
         run: cargo install cross && echo "CARGO=cross" >> "$GITHUB_ENV"
         if: matrix.build.cross
@@ -68,7 +68,7 @@ jobs:
             -type f \! -name '.cargo-lock' \! -name '*.d' -print0 \
             | xargs -I{} -r -0 cp {} dist/${{ matrix.build.target }}/
           tar -C dist/${{ matrix.build.target }} -czf dist/${{ matrix.build.target }}.tar.gz ./
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: ${{ matrix.build.target }}.tar.gz
           path: |
@@ -90,12 +90,12 @@ jobs:
       - build
     if: ${{ needs.get-next-version.outputs.new-release-published == 'true' && needs.cargo-toml-updated.outputs.updated == 'true' }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v6
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           path: dist
       - id: gh-token-gen
-        uses: oakcask/gh-token-gen@v3.1.10
+        uses: oakcask/gh-token-gen@3c87b3575883319ffabeaedf8ddc5ced6f67fae1 # v3.1.10
         with:
           app-id: ${{ secrets.TOKEN_GEN_APP_ID }}
           private-key: ${{ secrets.TOKEN_GEN_PRIVATE_KEY }}
