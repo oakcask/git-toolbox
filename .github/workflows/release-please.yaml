@@ -1,0 +1,28 @@
+name: release-please
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-please
+      cancel-in-progress: false
+    steps:
+      - id: gh-token-gen
+        uses: oakcask/gh-token-gen@8265635a8608c36d4e5de582b02d76c0b9fa790a # v4.0.1
+        with:
+          app-id: ${{ secrets.TOKEN_GEN_APP_ID }}
+          private-key: ${{ secrets.TOKEN_GEN_PRIVATE_KEY }}
+      - uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4
+        with:
+          token: ${{ steps.gh-token-gen.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
