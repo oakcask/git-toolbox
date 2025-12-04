@@ -17,7 +17,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - id: gh-token-gen
-        uses: oakcask/gh-token-gen@8265635a8608c36d4e5de582b02d76c0b9fa790a # v4.0.1
+        uses: oakcask/gh-token-gen@d65c585678cb39f009f96046d788617e1d0b0745 # v4.0.2
         with:
           app-id: ${{ secrets.TOKEN_GEN_APP_ID }}
           private-key: ${{ secrets.TOKEN_GEN_PRIVATE_KEY }}
