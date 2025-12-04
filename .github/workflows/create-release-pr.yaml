@@ -22,7 +22,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
       - name: Install semantic-release-cargo
         uses: EricCrosson/install-github-release-binary@3b6741ed37d8bdb9539ff5234f8c3b70805d04b5 # v2
         with:
