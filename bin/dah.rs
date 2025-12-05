@@ -5,7 +5,9 @@ use git_toolbox::app::dah::Application;
 #[derive(Parser)]
 #[command(
     about = "Push local changes anyway -- I know what you mean",
-    long_about = None)]
+    long_about = None,
+    after_help = "Never use git-dah unless your origin repository have protection to important branches. Okay?"
+)]
 struct Cli {
     #[arg(long, short = '1', help = "Do stepwise execution")]
     step: bool,
