@@ -494,11 +494,7 @@ fn generate_branch_name_from_commit_message(prefix: String, mesg: Option<&str>) 
 #[cfg(test)]
 mod tests {
 
-    use std::{
-        fs,
-        path::Path,
-        process::Command,
-    };
+    use std::{fs, path::Path, process::Command};
 
     use git2::{
         build::{CloneLocal, RepoBuilder},
