@@ -28,6 +28,12 @@ struct Cli {
     )]
     allow_force_push: bool,
     #[arg(
+        long = "only-staged",
+        help = "Do not commit unstaged changes",
+        action = ArgAction::SetFalse,
+    )]
+    allow_stage: bool,
+    #[arg(
         long = "no-fetch",
         help = "Do not invoke git-fetch automatically",
         action = ArgAction::SetFalse,
@@ -42,6 +48,7 @@ impl Cli {
             .with_step(self.step)
             .with_limit(self.limit)
             .with_allow_force_push(self.allow_force_push)
+            .with_allow_stage(self.allow_stage)
             .with_fetch_first(self.fetch_first);
         Ok(app)
     }
