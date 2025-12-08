@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.9.0](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.8.1...git-toolbox-v2.9.0) (2025-12-08)
+
+
+### Features
+
+* **git-dah:** add `--only-staged` option ([#327](https://github.com/oakcask/git-toolbox/issues/327)) ([910579d](https://github.com/oakcask/git-toolbox/commit/910579d11f1031917a3b125fec877cd65b5682ad))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate git2 to 0.20.3 ([#324](https://github.com/oakcask/git-toolbox/issues/324)) ([1d1bd37](https://github.com/oakcask/git-toolbox/commit/1d1bd37874330482c59d58d0f7fbbf86fcb85d17))
+
 ## [2.8.1](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.8.0...git-toolbox-v2.8.1) (2025-12-04)
 
 
