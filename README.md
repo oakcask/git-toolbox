@@ -79,7 +79,8 @@ Usage: git-dah [OPTIONS]
 Options:
   -1, --step           Do stepwise execution
       --limit <LIMIT>  Increase number of commits to scan in history [default: 2000]
-      --cooperative    Extra safety for team programming; meaning always rebase HEAD onto the remote branch and don't push with force [aliases: no-force]
+      --cooperative    Extra safety for team programming; meaning always rebase HEAD onto the remote branch and don't push with force [aliases: --no-force]
+      --only-staged    Do not commit unstaged changes
       --no-fetch       Do not invoke git-fetch automatically
   -h, --help           Print help
 ```
@@ -88,6 +89,7 @@ git-dah will automatically and repeatedly invoke git commands until stop in foll
 
 * Stop if working tree is conflicted or HEAD and its remote tracking branch is synchronized.
 * Stage changes by `git add -u` if working tree is "dirty".
+  * This step is skipped if `--only-staged` option is given.
 * Commit changes if staged changes exist.
 * Rename branch then switch to it, if HEAD points to the defualt or protected branch.
   This will clean up the revisions "wrongly" commited on the default or protected branches.

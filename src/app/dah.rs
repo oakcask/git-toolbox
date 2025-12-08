@@ -236,9 +236,15 @@ impl Collector for Application {
     }
 
     fn status(&self) -> Result<Status, Self::Error> {
-        let statuses = self.repo.statuses(Some(
-            StatusOptions::default().show(StatusShow::IndexAndWorkdir),
-        ))?;
+        let mut option = StatusOptions::default();
+        let option = &mut option;
+        if self.allow_stage {
+            option.show(StatusShow::IndexAndWorkdir);
+        } else {
+            // ignore the work directory status to touch staged changes only.
+            option.show(StatusShow::Index);
+        }
+        let statuses = self.repo.statuses(Some(option))?;
         // merge all statuses
         Ok(statuses
             .iter()
@@ -252,6 +258,7 @@ pub struct Application {
     step: bool,
     limit: usize,
     allow_force_push: bool,
+    allow_stage: bool,
     fetch_first: bool,
 }
 
@@ -284,6 +291,7 @@ impl Application {
             step: false,
             limit: 100,
             allow_force_push: true,
+            allow_stage: true,
             fetch_first: true,
         }
     }
@@ -306,6 +314,13 @@ impl Application {
     pub fn with_fetch_first(self, fetch_first: bool) -> Self {
         Self {
             fetch_first,
+            ..self
+        }
+    }
+
+    pub fn with_allow_stage(self, allow_stage: bool) -> Self {
+        Self {
+            allow_stage,
             ..self
         }
     }
@@ -479,9 +494,16 @@ fn generate_branch_name_from_commit_message(prefix: String, mesg: Option<&str>) 
 #[cfg(test)]
 mod tests {
 
+    use std::{
+        fs::{self, File},
+        io::Write,
+        path::Path,
+        process::Command,
+    };
+
     use git2::{
         build::{CloneLocal, RepoBuilder},
-        ConfigLevel, ObjectType, Repository, Signature,
+        ConfigLevel, ObjectType, Repository, Signature, Status,
     };
 
     use regex::Regex;
@@ -842,6 +864,77 @@ mod tests {
             .with_allow_force_push(true)
             .is_based_on_remote()
             .unwrap());
+    }
+
+    #[test]
+    fn application_status() {
+        let repo = TempDir::new().unwrap();
+        let repo_path = repo.path();
+
+        // Arrange:
+        // echo "initial" > staged
+        // echo "initial" > unstaged
+        // git add staged unstaged
+        // git commit
+        // echo "change" > staged
+        // echo "change" > unstaged
+        // git add staged
+        {
+            let repo = Repository::init(repo_path).unwrap();
+            let odb = repo.odb().unwrap();
+            let initial_oid = odb.write(ObjectType::Blob, "initial\n".as_bytes()).unwrap();
+            let author = Signature::now("foo", "foo@example.com").unwrap();
+            let mut tree = repo.treebuilder(None).unwrap();
+            tree.insert("staged", initial_oid.clone(), 0o100644)
+                .unwrap();
+            tree.insert("unstaged", initial_oid.clone(), 0o100644)
+                .unwrap();
+            let tree = tree.write().unwrap();
+            let tree = repo.find_tree(tree).unwrap();
+            repo.commit(
+                Some("refs/heads/main"),
+                &author,
+                &author,
+                "Initial commit",
+                &tree,
+                &[],
+            )
+            .unwrap();
+            repo.set_head("refs/heads/main").unwrap();
+            repo.checkout_head(None).unwrap();
+            Command::new("cat")
+                .arg(repo_path.join("staged").as_os_str())
+                .spawn()
+                .unwrap()
+                .wait()
+                .unwrap();
+
+            fs::write(repo_path.join("staged"), "changed\n").unwrap();
+            fs::write(repo_path.join("unstaged"), "changed\n").unwrap();
+            let mut idx = repo.index().unwrap();
+            idx.add_path(Path::new("staged")).unwrap();
+            idx.write().unwrap();
+        }
+        // Act & assert
+        // if allow_stage is false
+        {
+            let repo = Repository::open(repo_path).unwrap();
+            let status = Application::new(repo)
+                .with_allow_stage(false)
+                .status()
+                .unwrap();
+            assert!(!status.is_wt_modified());
+        }
+        // Act & assert
+        // if allow_stage is true
+        {
+            let repo = Repository::open(repo_path).unwrap();
+            let status = Application::new(repo)
+                .with_allow_stage(true)
+                .status()
+                .unwrap();
+            assert!(status.is_wt_modified());
+        }
     }
 
     #[test]
