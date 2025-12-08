@@ -3,11 +3,10 @@ on:
   push:
     branches:
       - main
-
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  pull_request:
+    paths:
+      # to test build job
+      - .github/workflows/release-please.yaml
 
 jobs:
   release-please:
@@ -15,6 +14,11 @@ jobs:
     concurrency:
       group: release-please
       cancel-in-progress: false
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - id: gh-token-gen
         uses: oakcask/gh-token-gen@d65c585678cb39f009f96046d788617e1d0b0745 # v4.0.2
@@ -26,3 +30,65 @@ jobs:
           token: ${{ steps.gh-token-gen.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  build:
+    strategy:
+        matrix:
+          build:
+            - os: ubuntu-latest
+              target: x86_64-unknown-linux-gnu
+              cross: false
+            - os: ubuntu-latest
+              target: aarch64-unknown-linux-gnu
+              cross: true
+            - os: macos-latest
+              target: aarch64-apple-darwin
+              cross: false
+    runs-on: ${{ matrix.build.os }}
+    env:
+      CARGO: "cargo"
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1
+      - name: Enable cross
+        run: cargo install cross && echo "CARGO=cross" >> "$GITHUB_ENV"
+        if: matrix.build.cross
+      - run: ${{ env.CARGO }} --locked build --release --target=${{ matrix.build.target }} --bins
+      - name: Prepare artifacts to upload
+        run: |
+          mkdir -p dist/${{ matrix.build.target }}
+          find target/${{ matrix.build.target }}/release -maxdepth 1 \
+            -type f \! -name '.cargo-lock' \! -name '*.d' -print0 \
+            | xargs -I{} -r -0 cp {} dist/${{ matrix.build.target }}/
+          tar -C dist/${{ matrix.build.target }} -czf dist/${{ matrix.build.target }}.tar.gz ./
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: ${{ matrix.build.target }}.tar.gz
+          path: |
+            dist/${{ matrix.build.target }}.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  upload-artifacts:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}
+    permissions:
+      contents: write
+    needs:
+      - release-please
+      - build
+    if: needs.release-please.outputs.release_created == 'true'
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          path: dist
+      - id: gh-token-gen
+        uses: oakcask/gh-token-gen@8265635a8608c36d4e5de582b02d76c0b9fa790a # v4.0.1
+        with:
+          app-id: ${{ secrets.TOKEN_GEN_APP_ID }}
+          private-key: ${{ secrets.TOKEN_GEN_PRIVATE_KEY }}
+      - run: gh release upload ${{ needs.release-please.outputs.tag_name }} dist/*
+        env:
+          GITHUB_TOKEN: ${{ steps.gh-token-gen.outputs.token }}
