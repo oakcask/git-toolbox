@@ -495,15 +495,14 @@ fn generate_branch_name_from_commit_message(prefix: String, mesg: Option<&str>) 
 mod tests {
 
     use std::{
-        fs::{self, File},
-        io::Write,
+        fs,
         path::Path,
         process::Command,
     };
 
     use git2::{
         build::{CloneLocal, RepoBuilder},
-        ConfigLevel, ObjectType, Repository, Signature, Status,
+        ConfigLevel, ObjectType, Repository, Signature,
     };
 
     use regex::Regex;
