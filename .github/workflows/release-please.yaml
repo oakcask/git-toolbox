@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    paths:
+      # to test build job
+      - .github/workflows/release-please.yaml
 
 jobs:
   release-please:
@@ -14,6 +18,7 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - id: gh-token-gen
         uses: oakcask/gh-token-gen@d65c585678cb39f009f96046d788617e1d0b0745 # v4.0.2
@@ -40,9 +45,6 @@ jobs:
               target: aarch64-apple-darwin
               cross: false
     runs-on: ${{ matrix.build.os }}
-    needs:
-      - release-please
-    if: needs.release-please.outputs.release_created == 'true'
     env:
       CARGO: "cargo"
     steps:
@@ -87,6 +89,6 @@ jobs:
         with:
           app-id: ${{ secrets.TOKEN_GEN_APP_ID }}
           private-key: ${{ secrets.TOKEN_GEN_PRIVATE_KEY }}
-      - run: gh release upload ${{needs.release-please.outputs.tag_name }} dist/*
+      - run: gh release upload ${{ needs.release-please.outputs.tag_name }} dist/*
         env:
           GITHUB_TOKEN: ${{ steps.gh-token-gen.outputs.token }}
