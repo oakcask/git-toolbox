@@ -9,7 +9,7 @@ permissions:
   contents: read
 env:
   # renovate: datasource=npm depName=pnpm
-  PNPM_VERSION: "10.24"
+  PNPM_VERSION: "10.25"
   # renovate: datasource=npm depName=renovate
   RENOVATE_VERSION: "42.39"
 jobs:
