@@ -1,5 +1,5 @@
 use chrono::{DateTime, Local};
-use clap::{arg, Parser};
+use clap::Parser;
 use git2::{Branch, BranchType, PushOptions, RemoteCallbacks, Repository};
 use git_toolbox::{git::GitTime, reltime::Reltime};
 use log::{error, info, warn};
