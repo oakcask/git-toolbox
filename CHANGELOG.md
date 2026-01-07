@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.1](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.0...git-toolbox-v2.9.1) (2026-01-07)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate clap to 4.5.54 ([#349](https://github.com/oakcask/git-toolbox/issues/349)) ([412104c](https://github.com/oakcask/git-toolbox/commit/412104c3915e7bc5aafdb4973804483ff4f9ec7c))
+
 ## [2.9.0](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.8.1...git-toolbox-v2.9.0) (2025-12-08)
 
 
