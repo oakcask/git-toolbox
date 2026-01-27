@@ -11,7 +11,7 @@ env:
   # renovate: datasource=npm depName=pnpm
   PNPM_VERSION: "10.28"
   # renovate: datasource=npm depName=renovate
-  RENOVATE_VERSION: "42.92"
+  RENOVATE_VERSION: "42.93"
 jobs:
   validate:
     runs-on: ubuntu-latest
