@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.9.1](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.0...git-toolbox-v2.9.1) (2026-01-28)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate chrono to 0.4.43 ([#360](https://github.com/oakcask/git-toolbox/issues/360)) ([e4ec52b](https://github.com/oakcask/git-toolbox/commit/e4ec52bb7564d0cf2a86698899c3ceabc39f007e))
+* **deps:** update rust crate clap to 4.5.54 ([#349](https://github.com/oakcask/git-toolbox/issues/349)) ([412104c](https://github.com/oakcask/git-toolbox/commit/412104c3915e7bc5aafdb4973804483ff4f9ec7c))
+* **deps:** update rust crate clap to 4.5.55 ([#369](https://github.com/oakcask/git-toolbox/issues/369)) ([029219b](https://github.com/oakcask/git-toolbox/commit/029219b8b38cbbe6dc16077a0e1466e461d16cf3))
+* **deps:** update rust crate thiserror to 2.0.18 ([#364](https://github.com/oakcask/git-toolbox/issues/364)) ([bdbe5cb](https://github.com/oakcask/git-toolbox/commit/bdbe5cb680c81ee53c4889b8ed62217c95c942bf))
+
 ## [2.9.0](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.8.1...git-toolbox-v2.9.0) (2025-12-08)
 
 
