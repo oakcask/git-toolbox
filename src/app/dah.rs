@@ -473,11 +473,7 @@ fn generate_branch_name_from_commit_message(prefix: String, mesg: Option<&str>) 
     let mut branch_name = prefix;
 
     if let Some(mesg) = mesg {
-        let mesg = Regex::new(r#"\s+"#).unwrap().replace_all(mesg, "-");
-        let mesg = Regex::new(r#"[^-_.0-9a-zA-Z]"#)
-            .unwrap()
-            .replace_all(&mesg, "_");
-        let mesg = mesg.to_lowercase();
+        let mesg = sanitize_branch_name_component(mesg);
         branch_name.push_str(&mesg);
         branch_name.push_str("-dah");
     } else {
@@ -489,6 +485,14 @@ fn generate_branch_name_from_commit_message(prefix: String, mesg: Option<&str>) 
     branch_name.push_str(&random);
 
     branch_name
+}
+
+fn sanitize_branch_name_component(mesg: &str) -> String {
+    let mesg = Regex::new(r#"\s+"#).unwrap().replace_all(mesg, "-");
+    let mesg = Regex::new(r#"[^-_0-9a-zA-Z]"#)
+        .unwrap()
+        .replace_all(&mesg, "_");
+    mesg.to_lowercase()
 }
 
 #[cfg(test)]
@@ -948,6 +952,12 @@ mod tests {
                 Some("chore(main): v1.0"),
                 r#"\Arelease/chore_main__-v1.0-dah[0-9a-z]{26}\z"#,
             ),
+            (
+                "",
+                Some("fix...typos"),
+                r#"\Afix___typos-dah[0-9a-z]{26}\z"#,
+            ),
+            ("", Some("..."), r#"\A___-dah[0-9a-z]{26}\z"#),
             ("release/", None, r#"\Arelease/dah[0-9a-z]{26}\z"#),
             // preserves underscore
             ("", Some("_"), r#"\A_-dah[0-9a-z]{26}\z"#),
