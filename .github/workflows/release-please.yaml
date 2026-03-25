@@ -48,7 +48,7 @@ jobs:
     env:
       CARGO: "cargo"
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # v1
       - name: Enable cross
         run: cargo install cross && echo "CARGO=cross" >> "$GITHUB_ENV"
@@ -80,7 +80,7 @@ jobs:
       - build
     if: needs.release-please.outputs.release_created == 'true'
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           path: dist
