@@ -61,7 +61,7 @@ jobs:
             -type f \! -name '.cargo-lock' \! -name '*.d' -print0 \
             | xargs -I{} -r -0 cp {} dist/${{ matrix.build.target }}/
           tar -C dist/${{ matrix.build.target }} -czf dist/${{ matrix.build.target }}.tar.gz ./
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: ${{ matrix.build.target }}.tar.gz
           path: |
@@ -81,7 +81,7 @@ jobs:
     if: needs.release-please.outputs.release_created == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           path: dist
       - id: gh-token-gen
