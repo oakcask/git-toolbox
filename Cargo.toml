@@ -21,8 +21,10 @@ path = "bin/whose.rs"
 required-features = ["git-whose"]
 
 [profile.release]
+opt-level = "z"
 strip = true
 lto = "thin"
+codegen-units = 1
 
 [dependencies]
 chrono = "0.4.44"
