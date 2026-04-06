@@ -306,7 +306,7 @@ dependencies = [
 
 [[package]]
 name = "git-toolbox"
-version = "2.9.1"
+version = "2.9.2"
 dependencies = [
  "chrono",
  "clap",
