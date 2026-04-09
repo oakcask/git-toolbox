@@ -84,10 +84,10 @@ jobs:
       - build
     if: needs.release-please.outputs.releases_created == 'true'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           path: dist
+          merge-multiple: true
       - id: gh-token-gen
         uses: oakcask/gh-token-gen@d65c585678cb39f009f96046d788617e1d0b0745 # v4.0.2
         with:
