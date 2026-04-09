@@ -1,8 +1,12 @@
-mod support;
+#[path = "common/bare_multi.rs"]
+mod bare_multi;
+#[path = "common/git_worktree.rs"]
+mod git_worktree;
 
 use std::process::Command;
 
-use support::{bare_repo_with_committed_files, git_add, git_init, mkdir_p, write};
+use bare_multi::bare_repo_with_committed_files;
+use git_worktree::{git_add, git_init, mkdir_p, write};
 use tempfile::TempDir;
 
 #[test]

@@ -1,8 +1,15 @@
-mod support;
+#[path = "common/bare_single.rs"]
+mod bare_single;
+#[path = "common/git_worktree.rs"]
+mod git_worktree;
+#[path = "common/log.rs"]
+mod test_log;
 
 use git_toolbox::github::codeowners::{CodeOwners, CodeOwnersError};
 use rstest::rstest;
-use support::{bare_repo_with_committed_file, git_add, git_init, mkdir_p, test_logger, write};
+use bare_single::bare_repo_with_committed_file;
+use git_worktree::{git_add, git_init, mkdir_p, write};
+use test_log::test_logger;
 use tempfile::TempDir;
 
 #[rstest]
