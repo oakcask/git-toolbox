@@ -1,6 +1,6 @@
 use std::{io::BufRead, path::Path};
 
-use git2::Repository;
+use git2::{ErrorCode, Repository};
 use log::warn;
 
 use crate::git::IndexStage;
@@ -55,7 +55,11 @@ impl TryFrom<String> for Record {
 
 #[cfg(test)]
 mod tests {
-    use super::{CodeOwnersEntryError, Record};
+    use std::path::Path;
+
+    use git2::{Repository, Signature};
+
+    use super::{CodeOwners, CodeOwnersEntryError, Record};
 
     #[test]
     fn parse() {
@@ -98,6 +102,36 @@ mod tests {
                 "#{i}: wants {want:?} for {input}, but got {got:?}"
             );
         }
+    }
+
+    #[test]
+    fn try_from_repo_reads_from_head_when_absent_from_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::init(dir.path()).unwrap();
+        let sig = Signature::now("t", "t@example.com").unwrap();
+
+        let co_path = dir.path().join(".github").join("CODEOWNERS");
+        std::fs::create_dir_all(co_path.parent().unwrap()).unwrap();
+        std::fs::write(&co_path, "* @owner\n").unwrap();
+
+        {
+            let mut index = repo.index().unwrap();
+            index.add_path(Path::new(".github/CODEOWNERS")).unwrap();
+            index.write().unwrap();
+            let tree_id = index.write_tree().unwrap();
+            let tree = repo.find_tree(tree_id).unwrap();
+            repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[])
+                .unwrap();
+        }
+
+        {
+            let mut index = repo.index().unwrap();
+            index.remove_path(Path::new(".github/CODEOWNERS")).unwrap();
+            index.write().unwrap();
+        }
+
+        let co = CodeOwners::<()>::try_from_repo(&repo).unwrap();
+        assert_eq!(co.find_owners("any.rs"), Some(&vec!["@owner".to_string()]));
     }
 }
 
@@ -156,13 +190,43 @@ impl<D: DebugInfo> CodeOwnersEntry<D> {
 #[derive(thiserror::Error, Debug)]
 pub enum CodeOwnersError {
     #[error(
-        "CODEOWNERS file is not indexed in the repository; did you already commit or stage it?"
+        "missing CODEOWNERS; must be in INDEX or HEAD for .github/CODEOWNERS, CODEOWNERS, or docs/CODEOWNERS"
     )]
-    NotIndexed,
+    Missing,
     #[error("libgit2 API error: {0}")]
     GitError(#[from] git2::Error),
     #[error("i/o error: {0}")]
     IOError(#[from] std::io::Error),
+}
+
+fn blob_for_codeowners_path<'a>(
+    repo: &'a Repository,
+    path: &Path,
+) -> Result<Option<git2::Blob<'a>>, CodeOwnersError> {
+    if let Some(entry) = repo.index()?.get_path(path, IndexStage::Normal.into()) {
+        let blob = repo
+            .find_object(entry.id, Some(git2::ObjectType::Blob))?
+            .into_blob()
+            .unwrap();
+        return Ok(Some(blob));
+    }
+
+    let head = match repo.head() {
+        Ok(h) => h,
+        Err(_) => return Ok(None),
+    };
+    let commit = head.peel_to_commit()?;
+    let tree = commit.tree()?;
+    let tree_entry = match tree.get_path(path) {
+        Ok(e) => e,
+        Err(e) if e.code() == ErrorCode::NotFound => return Ok(None),
+        Err(e) => return Err(e.into()),
+    };
+    let blob = repo
+        .find_object(tree_entry.id(), Some(git2::ObjectType::Blob))?
+        .into_blob()
+        .unwrap();
+    Ok(Some(blob))
 }
 
 impl<D: DebugInfo> CodeOwners<D> {
@@ -184,7 +248,7 @@ impl<D: DebugInfo> CodeOwners<D> {
     pub fn try_from_bufread<T: BufRead>(blob: T) -> Result<Self, CodeOwnersError> {
         // Forgetting errors in parsing is reasonable the repository barely contains invalid code owner records,
         // as GitHub enforces CODEOWNERS file being valid.
-        // (and we are reading CODEOWNERS from index)
+        // (content comes from the index or from HEAD — see try_from_repo)
         let entries: Vec<CodeOwnersEntry<D>> = blob
             .lines()
             .enumerate()
@@ -207,20 +271,19 @@ impl<D: DebugInfo> CodeOwners<D> {
         Ok(CodeOwners { entries })
     }
 
-    /// Read CODEOWNERS file from repository's index.
+    /// Read CODEOWNERS from the repository.
+    ///
+    /// For each of GitHub's locations (`.github/CODEOWNERS`, `CODEOWNERS`, `docs/CODEOWNERS`),
+    /// the staged copy in the index is tried first, then the blob at that path in `HEAD`'s tree.
     pub fn try_from_repo(repo: &Repository) -> Result<Self, CodeOwnersError> {
         let paths = [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"];
         for path in paths {
             let path = Path::new(path);
-            if let Some(entry) = repo.index()?.get_path(path, IndexStage::Normal.into()) {
-                let blob = repo
-                    .find_object(entry.id, Some(git2::ObjectType::Blob))?
-                    .into_blob()
-                    .unwrap();
+            if let Some(blob) = blob_for_codeowners_path(repo, path)? {
                 return Self::try_from_bufread(blob.content());
             }
         }
-        Err(CodeOwnersError::NotIndexed)
+        Err(CodeOwnersError::Missing)
     }
 
     pub fn debug<'a>(&'a self, path: &str) -> impl Iterator<Item = Match<'a, D>> {

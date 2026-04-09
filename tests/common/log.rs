@@ -1,34 +1,6 @@
-use git2::Repository;
 use log::Log;
 use once_cell::sync::Lazy;
-use std::{
-    fs::{self, File},
-    io::Write,
-    path::Path,
-    sync::{Arc, Mutex},
-};
-
-/// do `git init <path>`
-pub fn git_init<P: AsRef<Path>>(path: P) -> Repository {
-    git2::Repository::init(path).unwrap()
-}
-
-/// do `git add <path>`
-pub fn git_add<P: AsRef<Path>>(repo: &Repository, path: P) {
-    let mut index = repo.index().unwrap();
-    index.add_path(path.as_ref()).unwrap();
-}
-
-/// do `mkdir -p <path>`
-pub fn mkdir_p<P: AsRef<Path>>(path: P) {
-    fs::create_dir_all(path).unwrap();
-}
-
-/// write buffer data to path
-pub fn write<P: AsRef<Path>>(path: P, buf: &[u8]) {
-    let mut file = File::create_new(path).unwrap();
-    file.write_all(buf).unwrap();
-}
+use std::sync::{Arc, Mutex};
 
 type LogRecord = (log::Level, String, String);
 
