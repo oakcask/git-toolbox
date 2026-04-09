@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.3](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.2...git-toolbox-v2.9.3) (2026-04-09)
+
+
+### Bug Fixes
+
+* **git-whose:** actual bare repo support ([#401](https://github.com/oakcask/git-toolbox/issues/401)) ([02772b4](https://github.com/oakcask/git-toolbox/commit/02772b4ed7d3ca383b6e19ec45db26830bae346c))
+
 ## [2.9.2](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.1...git-toolbox-v2.9.2) (2026-04-06)
 
 
