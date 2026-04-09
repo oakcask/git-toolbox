@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.5](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.4...git-toolbox-v2.9.5) (2026-04-09)
+
+
+### Bug Fixes
+
+* release binaries (release workflow fixed) ([#406](https://github.com/oakcask/git-toolbox/issues/406)) ([b5d640b](https://github.com/oakcask/git-toolbox/commit/b5d640b587b019beec42e30fc20d89ba81b90048))
+
 ## [2.9.4](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.3...git-toolbox-v2.9.4) (2026-04-09)
 
 
