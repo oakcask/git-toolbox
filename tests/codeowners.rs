@@ -5,12 +5,12 @@ mod git_worktree;
 #[path = "common/log.rs"]
 mod test_log;
 
-use git_toolbox::github::codeowners::{CodeOwners, CodeOwnersError};
-use rstest::rstest;
 use bare_single::bare_repo_with_committed_file;
+use git_toolbox::github::codeowners::{CodeOwners, CodeOwnersError};
 use git_worktree::{git_add, git_init, mkdir_p, write};
-use test_log::test_logger;
+use rstest::rstest;
 use tempfile::TempDir;
+use test_log::test_logger;
 
 #[rstest]
 #[case(".github/CODEOWNERS")]
