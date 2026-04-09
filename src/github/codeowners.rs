@@ -131,10 +131,7 @@ mod tests {
         }
 
         let co = CodeOwners::<()>::try_from_repo(&repo).unwrap();
-        assert_eq!(
-            co.find_owners("any.rs"),
-            Some(&vec!["@owner".to_string()])
-        );
+        assert_eq!(co.find_owners("any.rs"), Some(&vec!["@owner".to_string()]));
     }
 }
 
