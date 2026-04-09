@@ -2,7 +2,7 @@ mod support;
 
 use git_toolbox::github::codeowners::{CodeOwners, CodeOwnersError};
 use rstest::rstest;
-use support::{git_add, git_init, mkdir_p, test_logger, write};
+use support::{bare_repo_with_committed_file, git_add, git_init, mkdir_p, test_logger, write};
 use tempfile::TempDir;
 
 #[rstest]
@@ -29,7 +29,7 @@ baz/ baz-owner
 
     assert!(matches!(
         CodeOwners::<()>::try_from_repo(&repo),
-        Err(CodeOwnersError::NotIndexed)
+        Err(CodeOwnersError::Missing)
     ));
 }
 
@@ -103,4 +103,23 @@ fn codeowner_try_from_repo_find_codeowners_file_in_priority(
 
     let co = CodeOwners::<()>::try_from_repo(&repo).unwrap();
     assert_eq!(co.find_owners("a.js"), Some(&vec![String::from("owner-1")]));
+}
+
+#[rstest]
+#[case(".github/CODEOWNERS")]
+#[case("CODEOWNERS")]
+#[case("docs/CODEOWNERS")]
+fn codeowner_try_from_repo_works_for_bare_repository(#[case] path: &str) {
+    let tmpdir = TempDir::new().unwrap();
+    let root = tmpdir.path();
+
+    let content = b"*.rs rust-team\n";
+    let repo = bare_repo_with_committed_file(root, path, content);
+    assert!(repo.is_bare());
+
+    let co = CodeOwners::<()>::try_from_repo(&repo).unwrap();
+    assert_eq!(
+        co.find_owners("src/lib.rs"),
+        Some(&vec![String::from("rust-team")])
+    );
 }

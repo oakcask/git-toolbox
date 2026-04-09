@@ -1,6 +1,6 @@
 use std::{ffi::OsStr, fmt::Debug, os::unix::ffi::OsStrExt as _};
 
-use git2::{Pathspec, PathspecFlags, Repository};
+use git2::{Pathspec, PathspecFlags, PathspecMatchList, Repository};
 use log::info;
 
 use crate::{
@@ -22,6 +22,22 @@ pub trait Application {
     fn run(&self) -> Result<(), ApplicationError>;
 }
 
+/// Match `pathspec` against the index (normal repo) or `HEAD` tree (bare repo).
+fn pathspec_match_list<'a>(
+    repo: &'a Repository,
+    pathspec: &'a Pathspec,
+) -> Result<PathspecMatchList<'a>, ApplicationError> {
+    if repo.is_bare() {
+        let head = repo.head()?;
+        let commit = head.peel_to_commit()?;
+        let tree = commit.tree()?;
+        Ok(pathspec.match_tree(&tree, PathspecFlags::default())?)
+    } else {
+        let index = repo.index()?;
+        Ok(pathspec.match_index(&index, PathspecFlags::default())?)
+    }
+}
+
 struct FinderApplication {
     repo: Repository,
     codeowners: CodeOwners,
@@ -32,9 +48,8 @@ impl Application for FinderApplication {
     fn run(&self) -> Result<(), ApplicationError> {
         env_logger::init();
 
-        let index = self.repo.index()?;
         let pathspec = Pathspec::new(self.pathspecs.iter())?;
-        let matches = pathspec.match_index(&index, PathspecFlags::default())?;
+        let matches = pathspec_match_list(&self.repo, &pathspec)?;
 
         for entry in matches.entries() {
             let path = OsStr::from_bytes(entry);
@@ -80,9 +95,8 @@ impl Application for DebugApplication {
     fn run(&self) -> Result<(), ApplicationError> {
         env_logger::init();
 
-        let index = self.repo.index()?;
         let pathspec = Pathspec::new(self.pathspecs.iter())?;
-        let matches = pathspec.match_index(&index, PathspecFlags::default())?;
+        let matches = pathspec_match_list(&self.repo, &pathspec)?;
 
         for entry in matches.entries() {
             let path = OsStr::from_bytes(entry);
@@ -123,7 +137,7 @@ impl ApplicationBuilder {
     pub fn with_pathspecs(self, pathspecs: Vec<String>) -> Result<Self, ApplicationError> {
         let pathspecs = if self.repo.is_bare() {
             info!("this is bare repository");
-            self.pathspecs
+            pathspecs
         } else {
             pathname::normalize_paths(&self.repo, pathspecs)?
         };
