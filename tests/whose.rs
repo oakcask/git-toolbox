@@ -1,11 +1,14 @@
 #[path = "common/bare_multi.rs"]
 mod bare_multi;
+#[path = "common/bin.rs"]
+mod bin;
 #[path = "common/git_worktree.rs"]
 mod git_worktree;
 
 use std::process::Command;
 
 use bare_multi::bare_repo_with_committed_files;
+use bin::git_whose_exe;
 use git_worktree::{git_add, git_init, mkdir_p, write};
 use tempfile::TempDir;
 
@@ -26,8 +29,7 @@ fn git_whose_prints_owners_for_indexed_paths() {
     git_add(&repo, ".github/CODEOWNERS");
     git_add(&repo, "src/lib.rs");
 
-    let exe = std::env::var("CARGO_BIN_EXE_git-whose")
-        .expect("cargo test sets CARGO_BIN_EXE_git-whose when the binary is built");
+    let exe = git_whose_exe();
     let out = Command::new(exe)
         .current_dir(root)
         .args(["src/lib.rs"])
@@ -61,8 +63,7 @@ fn git_whose_prints_owners_for_bare_repo_head_tree() {
         ],
     );
 
-    let exe = std::env::var("CARGO_BIN_EXE_git-whose")
-        .expect("cargo test sets CARGO_BIN_EXE_git-whose when the binary is built");
+    let exe = git_whose_exe();
     let out = Command::new(exe)
         .env("GIT_DIR", git_dir.canonicalize().unwrap())
         .current_dir(root)
