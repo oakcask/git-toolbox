@@ -69,8 +69,11 @@ impl Collector for Application {
         let head_ref = HeadRef::new(self.repo.head()?.name().unwrap().to_owned()).unwrap();
 
         if let Some(branch) = head_ref.branch() {
-            for remote in self.repo.remotes()?.into_iter().flatten() {
-                let mut remote = self.repo.find_remote(remote)?;
+            let head = self.repo.head()?;
+            if let Some(upstream) = get_upstream_branch(head)? {
+                let upstream = upstream.into_reference();
+                let upstream = RemoteRef::new(upstream.name().unwrap().to_owned()).unwrap();
+                let mut remote = self.repo.find_remote(upstream.remote())?;
                 let mut cb = git2::RemoteCallbacks::new();
                 let config = self.repo.config()?;
                 let mut cred_cb = CredentialCallback::new(config);
@@ -646,13 +649,100 @@ mod tests {
             // git switch -c main --track origin/main
             let remote_branch = local.find_branch("origin/main", git2::BranchType::Remote)?;
             let remote_head = remote_branch.get().peel_to_commit()?;
-            let _ = local.branch("main", &remote_head, true)?;
+            let mut branch = local.branch("main", &remote_head, true)?;
+            branch.set_upstream(Some("origin/main"))?;
             local.set_head("refs/heads/main")?;
         }
 
         assert!(
             Application::new(local).is_remote_head()?,
             "expected local's HEAD is remote HEAD"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn application_is_remote_head_without_upstream_returns_false(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let origin = TempDir::new()?;
+        let origin_path = origin.path();
+        let origin = Repository::init_bare(origin_path)?;
+        let local = TempDir::new()?;
+        let local = Repository::init_bare(local.path())?;
+
+        let author = Signature::now("foo", "foo@example.com")?;
+        let tree = origin.treebuilder(None)?;
+        let tree = tree.write()?;
+        let tree = origin.find_tree(tree)?;
+        origin.commit(Some("refs/heads/main"), &author, &author, "c1", &tree, &[])?;
+        origin.set_head("refs/heads/main")?;
+
+        let origin_path = origin_path.to_str().unwrap();
+        {
+            let mut remote = local.remote("origin", &format!("file://{origin_path}"))?;
+            remote.fetch(&["main:refs/remotes/origin/main"], None, None)?;
+            let remote_branch = local.find_branch("origin/main", git2::BranchType::Remote)?;
+            let remote_head = remote_branch.get().peel_to_commit()?;
+            let _ = local.branch("main", &remote_head, true)?;
+            local.set_head("refs/heads/main")?;
+        }
+
+        assert!(!Application::new(local).is_remote_head()?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn application_is_remote_head_ignores_non_upstream_remotes(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let origin = TempDir::new()?;
+        let origin_path = origin.path();
+        let origin = Repository::init_bare(origin_path)?;
+        let upstream = TempDir::new()?;
+        let upstream_path = upstream.path();
+        let upstream = Repository::init_bare(upstream_path)?;
+        let local = TempDir::new()?;
+        let local = Repository::init_bare(local.path())?;
+
+        let author = Signature::now("foo", "foo@example.com")?;
+        for (repo, branch) in [(&origin, "main"), (&upstream, "topic")] {
+            let tree = repo.treebuilder(None)?;
+            let tree = tree.write()?;
+            let tree = repo.find_tree(tree)?;
+            repo.commit(
+                Some(&format!("refs/heads/{branch}")),
+                &author,
+                &author,
+                "c1",
+                &tree,
+                &[],
+            )?;
+            repo.set_head(&format!("refs/heads/{branch}"))?;
+        }
+
+        let origin_path = origin_path.to_str().unwrap();
+        let upstream_path = upstream_path.to_str().unwrap();
+        {
+            let mut remote = local.remote("origin", &format!("file://{origin_path}"))?;
+            remote.fetch(&["main:refs/remotes/origin/main"], None, None)?;
+        }
+        {
+            let mut remote = local.remote("upstream", &format!("file://{upstream_path}"))?;
+            remote.fetch(&["topic:refs/remotes/upstream/topic"], None, None)?;
+        }
+        {
+            local.remote("malicious", "ssh://127.0.0.1:1/does-not-exist")?;
+            let remote_branch = local.find_branch("origin/main", git2::BranchType::Remote)?;
+            let remote_head = remote_branch.get().peel_to_commit()?;
+            let mut branch = local.branch("main", &remote_head, true)?;
+            branch.set_upstream(Some("origin/main"))?;
+            local.set_head("refs/heads/main")?;
+        }
+
+        assert!(
+            Application::new(local).is_remote_head()?,
+            "expected local HEAD to match upstream remote default branch without touching unrelated remotes"
         );
 
         Ok(())
