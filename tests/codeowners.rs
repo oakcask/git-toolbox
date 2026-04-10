@@ -130,3 +130,19 @@ fn codeowner_try_from_repo_works_for_bare_repository(#[case] path: &str) {
         Some(&vec![String::from("rust-team")])
     );
 }
+
+#[test]
+fn codeowner_debug_marks_only_last_match_effective() {
+    let co = CodeOwners::<()>::try_from_bufread(
+        &b"*.rs @rust-team\nsrc/** @src-team\nsrc/lib.rs @lib-team\n"[..],
+    )
+    .unwrap();
+
+    let matches = co.debug("src/lib.rs").collect::<Vec<_>>();
+
+    assert_eq!(matches.len(), 3);
+    assert!(!matches[0].is_effective());
+    assert!(!matches[1].is_effective());
+    assert!(matches[2].is_effective());
+    assert_eq!(matches[2].owners(), &vec![String::from("@lib-team")]);
+}

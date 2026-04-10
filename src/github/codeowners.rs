@@ -230,6 +230,12 @@ fn blob_for_codeowners_path<'a>(
 }
 
 impl<D: DebugInfo> CodeOwners<D> {
+    fn find_last_matching_entry_index(&self, path: &str) -> Option<usize> {
+        self.entries
+            .iter()
+            .rposition(|entry| entry.pattern.is_match(path))
+    }
+
     /// Parse CODEOWNERS file data in buffer.
     ///
     /// Examples
@@ -287,28 +293,21 @@ impl<D: DebugInfo> CodeOwners<D> {
     }
 
     pub fn debug<'a>(&'a self, path: &str) -> impl Iterator<Item = Match<'a, D>> {
+        let path = path.to_owned();
+        let effective = self.find_last_matching_entry_index(&path);
         self.entries
             .iter()
-            .filter(|&entry| entry.pattern.is_match(path))
-            .rev()
             .enumerate()
-            .map(|(nth, entry)| Match {
+            .filter(move |(_, entry)| entry.pattern.is_match(&path))
+            .map(move |(idx, entry)| Match {
                 entry,
-                effective: nth == 0,
+                effective: Some(idx) == effective,
             })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
     }
 
     /// Find owners for matching path.
     pub fn find_owners(&self, path: &str) -> Option<&Vec<String>> {
-        let entry = self
-            .entries
-            .iter()
-            .rev()
-            .find(|&entry| entry.pattern.is_match(path));
-
-        entry.map(|entry| &entry.owners)
+        self.find_last_matching_entry_index(path)
+            .map(|idx| &self.entries[idx].owners)
     }
 }

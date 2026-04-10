@@ -48,3 +48,7 @@ default = ["git-dah", "git-stale", "git-whose"]
 git-dah = []
 git-stale = []
 git-whose = []
+
+[[bench]]
+name = "codeowners"
+harness = false
