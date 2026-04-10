@@ -64,7 +64,7 @@ impl TryFrom<&str> for Reltime {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         static RE: Lazy<Regex> = Lazy::new(|| {
-            Regex::new(r"(?:(?P<yr>\d+)\s*(?:y|yrs?|years?))?(?:(?P<mo>\d+)\s*(?:mo|months?))?(?:(?P<w>\d+)\s*(?:w|weeks?))?(?:(?P<d>\d+)\s*(?:d|days?))?").unwrap()
+            Regex::new(r"^(?:(?P<yr>\d+)\s*(?:y|yrs?|years?))?(?:(?P<mo>\d+)\s*(?:mo|months?))?(?:(?P<w>\d+)\s*(?:w|weeks?))?(?:(?P<d>\d+)\s*(?:d|days?))?$").unwrap()
         });
 
         match RE.captures(value) {
@@ -85,6 +85,10 @@ impl TryFrom<&str> for Reltime {
                     .name("d")
                     .map_or(Ok(0), |s| s.as_str().parse())
                     .map_err(|_| Error::ParseError(value.to_string()))?;
+
+                if years == 0 && months == 0 && weeks == 0 && days == 0 {
+                    return Err(Error::ParseError(value.to_string()));
+                }
 
                 Ok(ReltimeBuilder {
                     years,
@@ -112,7 +116,7 @@ impl<Tz: TimeZone> Sub<Reltime> for DateTime<Tz> {
 
 #[cfg(test)]
 mod tests {
-    use crate::reltime::Reltime;
+    use crate::reltime::{Error as ReltimeError, Reltime};
     use chrono::DateTime;
     use std::error::Error;
 
@@ -170,5 +174,15 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn invalid_inputs_are_rejected() {
+        for value in ["", "gibberish", "1dJUNK"] {
+            assert!(
+                matches!(Reltime::try_from(value), Err(ReltimeError::ParseError(got)) if got == value),
+                "expected parse error for {value:?}"
+            );
+        }
     }
 }
