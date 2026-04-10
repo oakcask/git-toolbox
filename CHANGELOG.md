@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.9.6](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.5...git-toolbox-v2.9.6) (2026-04-10)
+
+
+### Bug Fixes
+
+* **git-dah:** check only the upstream remote ([#412](https://github.com/oakcask/git-toolbox/issues/412)) ([9560d23](https://github.com/oakcask/git-toolbox/commit/9560d23b94567155b449f5349a6271f8bcde7b63))
+* **git-stale:** prevent mass deletion by typo ([#410](https://github.com/oakcask/git-toolbox/issues/410)) ([b66177a](https://github.com/oakcask/git-toolbox/commit/b66177a3e8c871b51cacb8c66d2734b85ec194b4))
+
 ## [2.9.5](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.4...git-toolbox-v2.9.5) (2026-04-09)
 
 
