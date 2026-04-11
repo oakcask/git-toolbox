@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.7](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.6...git-toolbox-v2.9.7) (2026-04-11)
+
+
+### Performance Improvements
+
+* **git-whose:** reduce use of iter and allocation ([#414](https://github.com/oakcask/git-toolbox/issues/414)) ([177c129](https://github.com/oakcask/git-toolbox/commit/177c129f11106f4e59e157e2e821f42843bebde5))
+
 ## [2.9.6](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.5...git-toolbox-v2.9.6) (2026-04-10)
 
 
