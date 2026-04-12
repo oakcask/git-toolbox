@@ -16,7 +16,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # v1
       - run: cargo --locked fmt
       - id: gh-token-gen
-        uses: oakcask/gh-token-gen@d65c585678cb39f009f96046d788617e1d0b0745 # v4.0.2
+        uses: oakcask/gh-token-gen@e3d2caa8ef6111f5a516995d88890d3fb09206e3 # v5.0.0
         with:
           app-id: ${{ secrets.TOKEN_GEN_APP_ID }}
           private-key: ${{ secrets.TOKEN_GEN_PRIVATE_KEY }}
