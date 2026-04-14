@@ -1,18 +1,15 @@
 mod statemachine;
 
+use crate::config::Configuration;
 use crate::git::credentials::CredentialCallback;
 use crate::git::{GitTime, HeadRef, RemoteRef};
 use chrono::{DateTime, FixedOffset};
-use fnmatch_sys::{self, FNM_NOESCAPE};
-use git2::{Branch, ErrorCode, Repository, Sort, Status, StatusOptions, StatusShow};
+use git2::{Branch, Repository, Sort, Status, StatusOptions, StatusShow};
 use log::{error, info, warn};
 use regex::Regex;
 use statemachine::StepResult;
 use statemachine::{Action, Collector, Dispatcher};
-use std::{
-    ffi::{CStr, CString, OsString},
-    process::Stdio,
-};
+use std::{ffi::OsString, process::Stdio};
 use ulid::Ulid;
 
 #[derive(thiserror::Error, Debug)]
@@ -42,27 +39,21 @@ fn get_upstream_branch(reference: git2::Reference<'_>) -> Result<Option<Branch<'
     }
 }
 
-fn fnmatch(pat: &CStr, s: &CStr) -> bool {
-    let pat = pat.as_ptr();
-    let s = s.as_ptr();
-
-    unsafe { fnmatch_sys::fnmatch(pat, s, FNM_NOESCAPE) == 0 }
-}
-
 impl Collector for Application {
     type Error = RepositoryStateError;
 
     fn default_branch(&self) -> Result<Option<String>, Self::Error> {
-        self.repo.config()?.get_string("init.defaultbranch")
-            .map(Some)
-            .or_else(|e| {
-                if e.code() == ErrorCode::NotFound {
-                    warn!("init.defaultbranch is unset; git-dah guesses the default branch name by this config");
-                    Ok(None)
-                } else {
-                    Err(e.into())
-                }
-            })
+        let config = self.repo.config()?;
+        let config = Configuration::new(&config);
+        let default_branch = config.init_default_branch()?;
+
+        if default_branch.is_none() {
+            warn!(
+                "init.defaultbranch is unset; git-dah guesses the default branch name by this config"
+            );
+        }
+
+        Ok(default_branch)
     }
 
     fn is_remote_head(&self) -> Result<bool, Self::Error> {
@@ -102,25 +93,17 @@ impl Collector for Application {
 
         if let Some(branch) = head_ref.branch() {
             let config = self.repo.config()?;
-            let config_protected = config.get_string("dah.protectedbranch")
-                .map(Some)
-                .or_else(|e| {
-                    if e.code() == ErrorCode::NotFound {
-                        warn!("dah.protectedbranch is unset; git-dah guesses the protected branch by this config");
-                        Ok(None)
-                    } else {
-                        Err(e)
-                    }
-                })?;
-            if let Some(config_protected) = config_protected {
-                let branch_c_string = CString::new(branch).unwrap();
-                let is_match = config_protected.split(':').any(|n| {
-                    let pat = CString::new(n).unwrap();
-                    fnmatch(pat.as_c_str(), branch_c_string.as_c_str())
-                });
-                if is_match {
-                    return Ok(true);
-                }
+            let config = Configuration::new(&config);
+            let protected = config.dah_protected_branches()?;
+
+            if protected.is_none() {
+                warn!(
+                    "dah.protectedbranch is unset; git-dah guesses the protected branch by this config"
+                );
+            }
+
+            if let Some(protected) = protected {
+                return Ok(protected.is_match(branch));
             }
         }
 
@@ -355,17 +338,8 @@ impl Application {
     fn generate_branch_name(&self) -> Result<String, ApplicationError> {
         let head = self.repo.head()?;
         let commit = head.peel_to_commit()?;
-        let prefix = self
-            .repo
-            .config()?
-            .get_string("dah.branchprefix")
-            .or_else(|e| {
-                if e.code() == ErrorCode::NotFound {
-                    Ok(String::new())
-                } else {
-                    Err(e)
-                }
-            })?;
+        let config = self.repo.config()?;
+        let prefix = Configuration::new(&config).dah_branch_prefix()?;
 
         let mesg = commit.message().and_then(|m| m.lines().next());
         Ok(generate_branch_name_from_commit_message(prefix, mesg))
@@ -515,16 +489,7 @@ mod tests {
 
     use crate::app::dah::Application;
 
-    use super::{fnmatch, generate_branch_name_from_commit_message, statemachine::Collector};
-
-    #[test]
-    fn test_fnmatch() {
-        let cases = [(c"foo/*", c"foo/bar/baz")];
-
-        for (pat, s) in cases {
-            assert!(fnmatch(pat, s))
-        }
-    }
+    use super::{generate_branch_name_from_commit_message, statemachine::Collector};
 
     #[test]
     fn application_generate_branch_name() {
