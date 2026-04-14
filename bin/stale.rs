@@ -377,7 +377,10 @@ mod tests {
     use clap::Parser;
     use git2::{BranchType, ConfigLevel, Oid, Repository, Signature};
     use git_toolbox::git::RemoteRef;
+    use std::sync::Mutex;
     use tempfile::TempDir;
+
+    static CWD_LOCK: Mutex<()> = Mutex::new(());
 
     fn create_repo() -> Result<(TempDir, Repository), Box<dyn std::error::Error>> {
         let tmpdir = TempDir::new()?;
@@ -521,6 +524,7 @@ mod tests {
         dir: &std::path::Path,
         f: impl FnOnce() -> Result<T, Box<dyn std::error::Error>>,
     ) -> Result<T, Box<dyn std::error::Error>> {
+        let _cwd_lock = CWD_LOCK.lock().expect("cwd lock should not be poisoned");
         let cwd = std::env::current_dir()?;
         std::env::set_current_dir(dir)?;
         let result = f();
