@@ -135,7 +135,7 @@ impl Command {
                             remote_ref.branch(),
                             remote_ref.remote()
                         );
-                        refspecs.push(format!(":{}", remote_ref.branch()));
+                        refspecs.push(format!(":refs/heads/{}", remote_ref.branch()));
                         Ok(refspecs)
                     },
                 )?;
