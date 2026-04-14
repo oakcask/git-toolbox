@@ -31,20 +31,28 @@ fn parse_reltime(arg: &str) -> Result<Reltime, String> {
     Reltime::try_from(arg).map_err(|e| format!("while parsing {arg} got error: {e}"))
 }
 
-struct Command {
-    repo: Repository,
-    delete: bool,
-    push: bool,
-    visitor: Visitor,
+enum Command {
+    DeleteUpstreamBranches {
+        repo: Repository,
+        visitor: LocalBranchVisitor,
+    },
+    DeleteLocalBranches {
+        repo: Repository,
+        visitor: LocalBranchVisitor,
+    },
+    ListLocalBranches {
+        repo: Repository,
+        visitor: LocalBranchVisitor,
+    },
 }
 
 impl Command {
     fn run(self) -> Result<(), Box<dyn Error>> {
-        if self.delete && self.push {
-            let refspecs: HashMap<String, Vec<String>> = HashMap::new();
-            let mut refspecs =
-                self.visitor
-                    .for_each_branches(&self.repo, refspecs, |mut refspecs, branch| {
+        match self {
+            Self::DeleteUpstreamBranches { repo, visitor } => {
+                let refspecs: HashMap<String, Vec<String>> = HashMap::new();
+                let mut refspecs =
+                    visitor.for_each_branches(&repo, refspecs, |mut refspecs, branch| {
                         let upstream = branch.upstream()?;
                         let upstream = upstream.get();
                         let upstream = upstream
@@ -67,26 +75,27 @@ impl Command {
 
                         Ok(refspecs)
                     })?;
-            for (remote_name, refspecs) in refspecs.drain() {
-                let mut remote = self.repo.find_remote(&remote_name)?;
-                let mut callbacks = RemoteCallbacks::new();
-                callbacks.push_update_reference(|refname, status| {
-                    if let Some(error) = status {
-                        warn!("push failed: {refname}, status = {error}");
-                    } else {
-                        info!("pushed: {refname}");
+                for (remote_name, refspecs) in refspecs.drain() {
+                    let mut remote = repo.find_remote(&remote_name)?;
+                    let mut callbacks = RemoteCallbacks::new();
+                    callbacks.push_update_reference(|refname, status| {
+                        if let Some(error) = status {
+                            warn!("push failed: {refname}, status = {error}");
+                        } else {
+                            info!("pushed: {refname}");
+                        }
+                        Ok(())
+                    });
+                    let mut push_options = PushOptions::new();
+                    push_options.remote_callbacks(callbacks);
+                    if let Err(e) = remote.push(refspecs.as_slice(), Some(&mut push_options)) {
+                        warn!("failed to remove branches from {remote_name}: {e}")
                     }
-                    Ok(())
-                });
-                let mut push_options = PushOptions::new();
-                push_options.remote_callbacks(callbacks);
-                if let Err(e) = remote.push(refspecs.as_slice(), Some(&mut push_options)) {
-                    warn!("failed to remove branches from {remote_name}: {e}")
                 }
+                Ok(())
             }
-        } else if self.delete {
-            self.visitor
-                .for_each_branches(&self.repo, (), |_, mut branch| {
+            Self::DeleteLocalBranches { repo, visitor } => {
+                visitor.for_each_branches(&repo, (), |_, mut branch| {
                     if let Some(branch_name) = branch.get().name() {
                         let branch_name = branch_name.to_owned();
                         if let Err(e) = branch.delete() {
@@ -94,25 +103,25 @@ impl Command {
                         }
                     }
                     Ok(())
-                })?;
-        } else {
-            self.visitor
-                .for_each_branches(&self.repo, (), |_, branch| {
+                })
+            }
+            Self::ListLocalBranches { repo, visitor } => {
+                visitor.for_each_branches(&repo, (), |_, branch| {
                     println!("{}", branch.get().name().unwrap());
                     Ok(())
-                })?;
+                })
+            }
         }
-        Ok(())
     }
 }
 
-struct Visitor {
+struct LocalBranchVisitor {
     since: Option<DateTime<Local>>,
     branches: Vec<String>,
     protected_branches: Option<ProtectedBranches>,
 }
 
-impl Visitor {
+impl LocalBranchVisitor {
     fn for_each_branches<S, F: Fn(S, Branch<'_>) -> Result<S, Box<dyn Error>>>(
         &self,
         repo: &Repository,
@@ -181,17 +190,21 @@ impl Cli {
         let protected_branches = Configuration::new(&config).dah_protected_branches()?;
         let now = Local::now();
         let since = self.since.map(|s| now - s);
+        let visitor = LocalBranchVisitor {
+            since,
+            branches: self.branches,
+            protected_branches,
+        };
 
-        Ok(Command {
-            repo,
-            delete: self.delete,
-            push: self.push,
-            visitor: Visitor {
-                since,
-                branches: self.branches,
-                protected_branches,
-            },
-        })
+        let command = if self.delete && self.push {
+            Command::DeleteUpstreamBranches { repo, visitor }
+        } else if self.delete {
+            Command::DeleteLocalBranches { repo, visitor }
+        } else {
+            Command::ListLocalBranches { repo, visitor }
+        };
+
+        Ok(command)
     }
 }
 
@@ -208,7 +221,8 @@ fn main() -> ! {
 
 #[cfg(test)]
 mod tests {
-    use super::Visitor;
+    use super::LocalBranchVisitor;
+    use chrono::{Duration, Local};
     use git2::{BranchType, ConfigLevel, Repository, Signature};
     use tempfile::TempDir;
 
@@ -261,24 +275,53 @@ mod tests {
         Ok((tmpdir, repo))
     }
 
-    fn create_visitor(repo: &Repository) -> Result<Visitor, Box<dyn std::error::Error>> {
+    fn create_local_branch_visitor(
+        repo: &Repository,
+    ) -> Result<LocalBranchVisitor, Box<dyn std::error::Error>> {
         repo.config()?
             .open_level(ConfigLevel::Local)?
             .set_str("dah.protectedbranch", "develop:release/*")?;
         let config = repo.config()?;
         let protected_branches =
             git_toolbox::config::Configuration::new(&config).dah_protected_branches()?;
-        Ok(Visitor {
+        Ok(LocalBranchVisitor {
             since: None,
             branches: Vec::new(),
             protected_branches,
         })
     }
 
+    fn track_branch(
+        repo: &Repository,
+        branch_name: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let remote_ref = format!("refs/remotes/origin/{branch_name}");
+        let local_branch = repo.find_branch(branch_name, BranchType::Local)?;
+        let branch_target = local_branch
+            .get()
+            .target()
+            .expect("local branch should point to a commit");
+
+        if repo.find_remote("origin").is_err() {
+            repo.remote("origin", "file:///tmp/origin.git")?;
+        }
+        repo.reference(
+            &remote_ref,
+            branch_target,
+            true,
+            "create remote-tracking ref",
+        )?;
+
+        let mut local_branch = repo.find_branch(branch_name, BranchType::Local)?;
+        local_branch.set_upstream(Some(&format!("origin/{branch_name}")))?;
+
+        Ok(())
+    }
+
     #[test]
     fn head_branch_is_always_ignored() -> Result<(), Box<dyn std::error::Error>> {
         let (_tmpdir, repo) = create_repo()?;
-        let v = create_visitor(&repo)?;
+        let v = create_local_branch_visitor(&repo)?;
         let branch = repo.find_branch("main", BranchType::Local)?;
 
         assert!(!v.match_branch(&branch)?);
@@ -289,7 +332,7 @@ mod tests {
     #[test]
     fn protected_branches_are_ignored() -> Result<(), Box<dyn std::error::Error>> {
         let (_tmpdir, repo) = create_repo()?;
-        let v = create_visitor(&repo)?;
+        let v = create_local_branch_visitor(&repo)?;
         let branch = repo.find_branch("develop", BranchType::Local)?;
 
         assert!(!v.match_branch(&branch)?);
@@ -304,7 +347,7 @@ mod tests {
     fn protected_branches_are_ignored_even_with_prefix_filters(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (_tmpdir, repo) = create_repo()?;
-        let mut v = create_visitor(&repo)?;
+        let mut v = create_local_branch_visitor(&repo)?;
         v.branches = vec!["release/".to_owned()];
         let branch = repo.find_branch("release/v1", BranchType::Local)?;
 
@@ -316,11 +359,71 @@ mod tests {
     #[test]
     fn unprotected_branch_can_match_prefix_filter() -> Result<(), Box<dyn std::error::Error>> {
         let (_tmpdir, repo) = create_repo()?;
-        let mut v = create_visitor(&repo)?;
+        let mut v = create_local_branch_visitor(&repo)?;
         v.branches = vec!["feature/".to_owned()];
         let branch = repo.find_branch("feature/old", BranchType::Local)?;
 
         assert!(v.match_branch(&branch)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn unprotected_branch_matches_when_prefix_filters_are_unset(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (_tmpdir, repo) = create_repo()?;
+        let v = create_local_branch_visitor(&repo)?;
+        let branch = repo.find_branch("feature/old", BranchType::Local)?;
+
+        assert!(v.match_branch(&branch)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn unprotected_branch_is_ignored_when_prefix_filters_do_not_match(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (_tmpdir, repo) = create_repo()?;
+        let mut v = create_local_branch_visitor(&repo)?;
+        v.branches = vec!["bugfix/".to_owned()];
+        let branch = repo.find_branch("feature/old", BranchType::Local)?;
+
+        assert!(!v.match_branch(&branch)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn for_each_branches_without_since_selects_only_branches_without_upstream(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (_tmpdir, repo) = create_repo()?;
+        track_branch(&repo, "feature/old")?;
+        let v = create_local_branch_visitor(&repo)?;
+
+        let selected = v.for_each_branches(&repo, Vec::new(), |mut names, branch| {
+            names.push(branch.name()?.unwrap().to_owned());
+            Ok(names)
+        })?;
+
+        assert!(selected.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn for_each_branches_with_since_can_select_branches_with_upstream(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (_tmpdir, repo) = create_repo()?;
+        track_branch(&repo, "feature/old")?;
+        let mut v = create_local_branch_visitor(&repo)?;
+        v.since = Some(Local::now() + Duration::days(1));
+
+        let selected = v.for_each_branches(&repo, Vec::new(), |mut names, branch| {
+            names.push(branch.name()?.unwrap().to_owned());
+            Ok(names)
+        })?;
+
+        assert_eq!(vec!["feature/old".to_owned()], selected);
 
         Ok(())
     }
