@@ -145,6 +145,7 @@ Arguments:
   [BRANCHES]...  Select branches with specified prefixes, or select all if unset
 
 Options:
+      --remote         Select origin remote-tracking branches instead of local branches
   -d, --delete         Perform deletion of selected branches
       --push           Combined with --delete, perform deletion on remote repository instead
       --since <SINCE>  Select local branch with commit times older than the specified relative time
@@ -156,6 +157,20 @@ Options:
 ```sh
 git config --global dah.protectedbranch "develop:release:release/*"
 ```
+
+Without `--since`, `git-stale` lists local branches that do not have an upstream branch.
+With `--since`, it selects local branches whose tip commit is older than the specified relative time.
+
+If `--delete --push` is given in local mode, `git-stale` deletes upstream branches for the selected local branches, while keeping the local branches.
+
+If `--remote` is given, `git-stale` switches to `origin` remote-tracking branches instead of local branches.
+In this mode:
+
+* `--since` is required.
+* Only `origin/*` tracking branches are considered.
+* `origin/HEAD`, the configured default branch, and branches matched by `dah.protectedbranch` are ignored.
+* Prefix filters still use the short branch name, so `feature/` matches `origin/feature/foo`, but `origin/feature/` does not.
+* `--delete` requires `--push`, and removes matching branches from `origin`.
 
 #### Relative Date Format
 
