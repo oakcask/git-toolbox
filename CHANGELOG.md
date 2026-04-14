@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.10.0](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.7...git-toolbox-v2.10.0) (2026-04-14)
+
+
+### Features
+
+* **git-stale:** add `--remote` to operate tracking branches ([#425](https://github.com/oakcask/git-toolbox/issues/425)) ([55febce](https://github.com/oakcask/git-toolbox/commit/55febce97baca87a527927b1eda43b86df224fd7))
+* **git-stale:** honor protected branch setting as well as git-dah ([#421](https://github.com/oakcask/git-toolbox/issues/421)) ([8c93a87](https://github.com/oakcask/git-toolbox/commit/8c93a87d75045c0a278ec18b4bac4a7773dda4cb))
+
+
+### Bug Fixes
+
+* **git-stale:** tighten to fully qualified destination refspec ([#426](https://github.com/oakcask/git-toolbox/issues/426)) ([f55b4cd](https://github.com/oakcask/git-toolbox/commit/f55b4cd0ebb4781cc9eba56ae3f1b6f6b2eb5a71))
+
 ## [2.9.7](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.6...git-toolbox-v2.9.7) (2026-04-11)
 
 
