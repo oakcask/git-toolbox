@@ -35,38 +35,38 @@ struct Command {
     repo: Repository,
     delete: bool,
     push: bool,
-    since: Option<DateTime<Local>>,
-    branches: Vec<String>,
-    protected_branches: Option<ProtectedBranches>,
+    visitor: Visitor,
 }
 
 impl Command {
-    fn run(&self) -> Result<(), Box<dyn Error>> {
+    fn run(self) -> Result<(), Box<dyn Error>> {
         if self.delete && self.push {
             let refspecs: HashMap<String, Vec<String>> = HashMap::new();
-            let mut refspecs = self.for_each(refspecs, |mut refspecs, branch| {
-                let upstream = branch.upstream()?;
-                let upstream = upstream.get();
-                let upstream = upstream
-                    .name()
-                    .and_then(|u| u.strip_prefix("refs/remotes/"))
-                    .and_then(|u| u.split('/').next());
-                let branch_name = branch.get().name();
+            let mut refspecs =
+                self.visitor
+                    .for_each_branches(&self.repo, refspecs, |mut refspecs, branch| {
+                        let upstream = branch.upstream()?;
+                        let upstream = upstream.get();
+                        let upstream = upstream
+                            .name()
+                            .and_then(|u| u.strip_prefix("refs/remotes/"))
+                            .and_then(|u| u.split('/').next());
+                        let branch_name = branch.get().name();
 
-                if let (Some(remote_name), Some(branch_name)) = (upstream, branch_name) {
-                    info!("branch '{branch_name}' will be deleted from {remote_name}");
+                        if let (Some(remote_name), Some(branch_name)) = (upstream, branch_name) {
+                            info!("branch '{branch_name}' will be deleted from {remote_name}");
 
-                    // refspec has <src>:<dst> format, so leaving <src> empty will delete <dst>.
-                    let refspec = format!(":{branch_name}");
-                    if let Some(branches) = refspecs.get_mut(remote_name) {
-                        branches.push(refspec)
-                    } else {
-                        refspecs.insert(remote_name.to_owned(), vec![refspec]);
-                    }
-                }
+                            // refspec has <src>:<dst> format, so leaving <src> empty will delete <dst>.
+                            let refspec = format!(":{branch_name}");
+                            if let Some(branches) = refspecs.get_mut(remote_name) {
+                                branches.push(refspec)
+                            } else {
+                                refspecs.insert(remote_name.to_owned(), vec![refspec]);
+                            }
+                        }
 
-                Ok(refspecs)
-            })?;
+                        Ok(refspecs)
+                    })?;
             for (remote_name, refspecs) in refspecs.drain() {
                 let mut remote = self.repo.find_remote(&remote_name)?;
                 let mut callbacks = RemoteCallbacks::new();
@@ -85,31 +85,42 @@ impl Command {
                 }
             }
         } else if self.delete {
-            self.for_each((), |_, mut branch| {
-                if let Some(branch_name) = branch.get().name() {
-                    let branch_name = branch_name.to_owned();
-                    if let Err(e) = branch.delete() {
-                        warn!("failed to remove branch '{branch_name}': {e}")
+            self.visitor
+                .for_each_branches(&self.repo, (), |_, mut branch| {
+                    if let Some(branch_name) = branch.get().name() {
+                        let branch_name = branch_name.to_owned();
+                        if let Err(e) = branch.delete() {
+                            warn!("failed to remove branch '{branch_name}': {e}")
+                        }
                     }
-                }
-                Ok(())
-            })?;
+                    Ok(())
+                })?;
         } else {
-            self.for_each((), |_, branch| {
-                println!("{}", branch.get().name().unwrap());
-                Ok(())
-            })?;
+            self.visitor
+                .for_each_branches(&self.repo, (), |_, branch| {
+                    println!("{}", branch.get().name().unwrap());
+                    Ok(())
+                })?;
         }
         Ok(())
     }
+}
 
-    fn for_each<S, F: Fn(S, Branch<'_>) -> Result<S, Box<dyn Error>>>(
+struct Visitor {
+    since: Option<DateTime<Local>>,
+    branches: Vec<String>,
+    protected_branches: Option<ProtectedBranches>,
+}
+
+impl Visitor {
+    fn for_each_branches<S, F: Fn(S, Branch<'_>) -> Result<S, Box<dyn Error>>>(
         &self,
+        repo: &Repository,
         init: S,
         f: F,
     ) -> Result<S, Box<dyn Error>> {
         let mut st = init;
-        for branch in self.repo.branches(Some(BranchType::Local))? {
+        for branch in repo.branches(Some(BranchType::Local))? {
             let (branch, _) = branch?;
             if !self.match_branch(&branch)? {
                 continue;
@@ -175,9 +186,11 @@ impl Cli {
             repo,
             delete: self.delete,
             push: self.push,
-            since,
-            branches: self.branches,
-            protected_branches,
+            visitor: Visitor {
+                since,
+                branches: self.branches,
+                protected_branches,
+            },
         })
     }
 }
@@ -195,7 +208,7 @@ fn main() -> ! {
 
 #[cfg(test)]
 mod tests {
-    use super::Command;
+    use super::Visitor;
     use git2::{BranchType, ConfigLevel, Repository, Signature};
     use tempfile::TempDir;
 
@@ -248,18 +261,14 @@ mod tests {
         Ok((tmpdir, repo))
     }
 
-    fn create_command(repo: Repository) -> Result<Command, Box<dyn std::error::Error>> {
+    fn create_visitor(repo: &Repository) -> Result<Visitor, Box<dyn std::error::Error>> {
         repo.config()?
             .open_level(ConfigLevel::Local)?
             .set_str("dah.protectedbranch", "develop:release/*")?;
         let config = repo.config()?;
         let protected_branches =
             git_toolbox::config::Configuration::new(&config).dah_protected_branches()?;
-
-        Ok(Command {
-            repo,
-            delete: false,
-            push: false,
+        Ok(Visitor {
             since: None,
             branches: Vec::new(),
             protected_branches,
@@ -269,10 +278,10 @@ mod tests {
     #[test]
     fn head_branch_is_always_ignored() -> Result<(), Box<dyn std::error::Error>> {
         let (_tmpdir, repo) = create_repo()?;
-        let command = create_command(repo)?;
-        let branch = command.repo.find_branch("main", BranchType::Local)?;
+        let v = create_visitor(&repo)?;
+        let branch = repo.find_branch("main", BranchType::Local)?;
 
-        assert!(!command.match_branch(&branch)?);
+        assert!(!v.match_branch(&branch)?);
 
         Ok(())
     }
@@ -280,13 +289,13 @@ mod tests {
     #[test]
     fn protected_branches_are_ignored() -> Result<(), Box<dyn std::error::Error>> {
         let (_tmpdir, repo) = create_repo()?;
-        let command = create_command(repo)?;
-        let branch = command.repo.find_branch("develop", BranchType::Local)?;
+        let v = create_visitor(&repo)?;
+        let branch = repo.find_branch("develop", BranchType::Local)?;
 
-        assert!(!command.match_branch(&branch)?);
+        assert!(!v.match_branch(&branch)?);
 
-        let branch = command.repo.find_branch("release/v1", BranchType::Local)?;
-        assert!(!command.match_branch(&branch)?);
+        let branch = repo.find_branch("release/v1", BranchType::Local)?;
+        assert!(!v.match_branch(&branch)?);
 
         Ok(())
     }
@@ -295,11 +304,11 @@ mod tests {
     fn protected_branches_are_ignored_even_with_prefix_filters(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (_tmpdir, repo) = create_repo()?;
-        let mut command = create_command(repo)?;
-        command.branches = vec!["release/".to_owned()];
-        let branch = command.repo.find_branch("release/v1", BranchType::Local)?;
+        let mut v = create_visitor(&repo)?;
+        v.branches = vec!["release/".to_owned()];
+        let branch = repo.find_branch("release/v1", BranchType::Local)?;
 
-        assert!(!command.match_branch(&branch)?);
+        assert!(!v.match_branch(&branch)?);
 
         Ok(())
     }
@@ -307,11 +316,11 @@ mod tests {
     #[test]
     fn unprotected_branch_can_match_prefix_filter() -> Result<(), Box<dyn std::error::Error>> {
         let (_tmpdir, repo) = create_repo()?;
-        let mut command = create_command(repo)?;
-        command.branches = vec!["feature/".to_owned()];
-        let branch = command.repo.find_branch("feature/old", BranchType::Local)?;
+        let mut v = create_visitor(&repo)?;
+        v.branches = vec!["feature/".to_owned()];
+        let branch = repo.find_branch("feature/old", BranchType::Local)?;
 
-        assert!(command.match_branch(&branch)?);
+        assert!(v.match_branch(&branch)?);
 
         Ok(())
     }
