@@ -151,6 +151,12 @@ Options:
   -h, --help           Print help
 ```
 
+`git-stale` always ignores the current `HEAD` branch. It also ignores branches matched by `dah.protectedbranch`, using the same `:`-separated glob patterns as `git-dah`.
+
+```sh
+git config --global dah.protectedbranch "develop:release:release/*"
+```
+
 #### Relative Date Format
 
 Some option in `git-stale` accepts relative date.

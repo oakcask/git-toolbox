@@ -1,7 +1,9 @@
 use chrono::{DateTime, Local};
 use clap::Parser;
 use git2::{Branch, BranchType, PushOptions, RemoteCallbacks, Repository};
-use git_toolbox::{git::GitTime, reltime::Reltime};
+use git_toolbox::{
+    config::Configuration, config::ProtectedBranches, git::GitTime, reltime::Reltime,
+};
 use log::{error, info, warn};
 use std::{collections::HashMap, error::Error, process::exit};
 
@@ -35,6 +37,7 @@ struct Command {
     push: bool,
     since: Option<DateTime<Local>>,
     branches: Vec<String>,
+    protected_branches: Option<ProtectedBranches>,
 }
 
 impl Command {
@@ -134,6 +137,15 @@ impl Command {
                 if branch.is_head() {
                     info!("branch '{branch_name}' ignored. NOTE: HEAD branch is always ignored.");
                     Ok(false)
+                } else if self
+                    .protected_branches
+                    .as_ref()
+                    .is_some_and(|protected| protected.is_match(branch_name))
+                {
+                    info!(
+                        "branch '{branch_name}' ignored. NOTE: protected branches from dah.protectedbranch are always ignored."
+                    );
+                    Ok(false)
                 } else if self.branches.is_empty() {
                     Ok(true)
                 } else {
@@ -154,6 +166,8 @@ impl Command {
 impl Cli {
     fn into_command(self) -> Result<Command, Box<dyn Error>> {
         let repo = Repository::open_from_env()?;
+        let config = repo.config()?;
+        let protected_branches = Configuration::new(&config).dah_protected_branches()?;
         let now = Local::now();
         let since = self.since.map(|s| now - s);
 
@@ -163,6 +177,7 @@ impl Cli {
             push: self.push,
             since,
             branches: self.branches,
+            protected_branches,
         })
     }
 }
@@ -175,5 +190,129 @@ fn main() -> ! {
             exit(1)
         }
         Ok(_) => exit(0),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Command;
+    use git2::{BranchType, ConfigLevel, Repository, Signature};
+    use tempfile::TempDir;
+
+    fn create_repo() -> Result<(TempDir, Repository), Box<dyn std::error::Error>> {
+        let tmpdir = TempDir::new()?;
+        let repo = Repository::init_bare(tmpdir.path())?;
+        let author = Signature::now("foo", "foo@example.com")?;
+        {
+            let tree_oid = {
+                let tree = repo.treebuilder(None)?;
+                tree.write()?
+            };
+            let tree = repo.find_tree(tree_oid)?;
+
+            repo.commit(
+                Some("refs/heads/main"),
+                &author,
+                &author,
+                "main",
+                &tree,
+                &[],
+            )?;
+            repo.commit(
+                Some("refs/heads/develop"),
+                &author,
+                &author,
+                "develop",
+                &tree,
+                &[],
+            )?;
+            repo.commit(
+                Some("refs/heads/release/v1"),
+                &author,
+                &author,
+                "release v1",
+                &tree,
+                &[],
+            )?;
+            repo.commit(
+                Some("refs/heads/feature/old"),
+                &author,
+                &author,
+                "feature old",
+                &tree,
+                &[],
+            )?;
+        }
+        repo.set_head("refs/heads/main")?;
+
+        Ok((tmpdir, repo))
+    }
+
+    fn create_command(repo: Repository) -> Result<Command, Box<dyn std::error::Error>> {
+        repo.config()?
+            .open_level(ConfigLevel::Local)?
+            .set_str("dah.protectedbranch", "develop:release/*")?;
+        let config = repo.config()?;
+        let protected_branches =
+            git_toolbox::config::Configuration::new(&config).dah_protected_branches()?;
+
+        Ok(Command {
+            repo,
+            delete: false,
+            push: false,
+            since: None,
+            branches: Vec::new(),
+            protected_branches,
+        })
+    }
+
+    #[test]
+    fn head_branch_is_always_ignored() -> Result<(), Box<dyn std::error::Error>> {
+        let (_tmpdir, repo) = create_repo()?;
+        let command = create_command(repo)?;
+        let branch = command.repo.find_branch("main", BranchType::Local)?;
+
+        assert!(!command.match_branch(&branch)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn protected_branches_are_ignored() -> Result<(), Box<dyn std::error::Error>> {
+        let (_tmpdir, repo) = create_repo()?;
+        let command = create_command(repo)?;
+        let branch = command.repo.find_branch("develop", BranchType::Local)?;
+
+        assert!(!command.match_branch(&branch)?);
+
+        let branch = command.repo.find_branch("release/v1", BranchType::Local)?;
+        assert!(!command.match_branch(&branch)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn protected_branches_are_ignored_even_with_prefix_filters(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (_tmpdir, repo) = create_repo()?;
+        let mut command = create_command(repo)?;
+        command.branches = vec!["release/".to_owned()];
+        let branch = command.repo.find_branch("release/v1", BranchType::Local)?;
+
+        assert!(!command.match_branch(&branch)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn unprotected_branch_can_match_prefix_filter() -> Result<(), Box<dyn std::error::Error>> {
+        let (_tmpdir, repo) = create_repo()?;
+        let mut command = create_command(repo)?;
+        command.branches = vec!["feature/".to_owned()];
+        let branch = command.repo.find_branch("feature/old", BranchType::Local)?;
+
+        assert!(command.match_branch(&branch)?);
+
+        Ok(())
     }
 }
