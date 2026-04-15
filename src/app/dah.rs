@@ -1,7 +1,7 @@
 mod statemachine;
 
 use crate::config::Configuration;
-use crate::git::credentials::CredentialCallback;
+use crate::git::credentials::remote_callbacks;
 use crate::git::{GitTime, HeadRef, RemoteRef};
 use chrono::{DateTime, FixedOffset};
 use git2::{Branch, Repository, Sort, Status, StatusOptions, StatusShow};
@@ -65,12 +65,8 @@ impl Collector for Application {
                 let upstream = upstream.into_reference();
                 let upstream = RemoteRef::new(upstream.name().unwrap().to_owned()).unwrap();
                 let mut remote = self.repo.find_remote(upstream.remote())?;
-                let mut cb = git2::RemoteCallbacks::new();
                 let config = self.repo.config()?;
-                let mut cred_cb = CredentialCallback::new(config);
-                cb.credentials(move |url, username, allowed_types| {
-                    cred_cb.try_next(url, username, allowed_types)
-                });
+                let cb = remote_callbacks(config);
                 remote.connect_auth(git2::Direction::Fetch, Some(cb), None)?;
 
                 if let Ok(remote_default_branch) = remote.default_branch() {

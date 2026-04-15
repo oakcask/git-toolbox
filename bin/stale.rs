@@ -1,9 +1,9 @@
 use chrono::{DateTime, Local};
 use clap::Parser;
-use git2::{Branch, BranchType, PushOptions, RemoteCallbacks, Repository};
+use git2::{Branch, BranchType, PushOptions, Repository};
 use git_toolbox::{
-    config::Configuration, config::ProtectedBranches, git::GitTime, git::RemoteRef,
-    reltime::Reltime,
+    config::Configuration, config::ProtectedBranches, git::credentials::remote_callbacks,
+    git::GitTime, git::RemoteRef, reltime::Reltime,
 };
 use log::{error, info, warn};
 use std::{collections::HashMap, error::Error, io, process::exit};
@@ -91,7 +91,8 @@ impl Command {
                     })?;
                 for (remote_name, refspecs) in refspecs.drain() {
                     let mut remote = repo.find_remote(&remote_name)?;
-                    let mut callbacks = RemoteCallbacks::new();
+                    let config = repo.config()?;
+                    let mut callbacks = remote_callbacks(config);
                     callbacks.push_update_reference(|refname, status| {
                         if let Some(error) = status {
                             warn!("push failed: {refname}, status = {error}");
@@ -140,7 +141,8 @@ impl Command {
                     },
                 )?;
                 let mut remote = repo.find_remote("origin")?;
-                let mut callbacks = RemoteCallbacks::new();
+                let config = repo.config()?;
+                let mut callbacks = remote_callbacks(config);
                 callbacks.push_update_reference(|refname, status| {
                     if let Some(error) = status {
                         warn!("push failed: {refname}, status = {error}");
