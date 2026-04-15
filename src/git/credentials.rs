@@ -90,3 +90,12 @@ impl CredentialCallback {
         }
     }
 }
+
+pub fn remote_callbacks(config: git2::Config) -> git2::RemoteCallbacks<'static> {
+    let mut callbacks = git2::RemoteCallbacks::new();
+    let mut cred_cb = CredentialCallback::new(config);
+    callbacks.credentials(move |url, username, allowed_types| {
+        cred_cb.try_next(url, username, allowed_types)
+    });
+    callbacks
+}
