@@ -2,9 +2,8 @@ use chrono::{DateTime, Local};
 use clap::Parser;
 use git2::{Branch, BranchType, PushOptions, Repository};
 use git_toolbox::{
-    config::Configuration, config::ProtectedBranches, git::GitTime, git::RemoteRef,
-    git::credentials::remote_callbacks,
-    reltime::Reltime,
+    config::Configuration, config::ProtectedBranches, git::credentials::remote_callbacks,
+    git::GitTime, git::RemoteRef, reltime::Reltime,
 };
 use log::{error, info, warn};
 use std::{collections::HashMap, error::Error, io, process::exit};
