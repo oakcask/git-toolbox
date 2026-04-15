@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.1](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.10.0...git-toolbox-v2.10.1) (2026-04-15)
+
+
+### Bug Fixes
+
+* **git-stale:** do authentication before push ([#431](https://github.com/oakcask/git-toolbox/issues/431)) ([7242b67](https://github.com/oakcask/git-toolbox/commit/7242b67393b9f8506743cba0091de43a5b114f9e))
+
 ## [2.10.0](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.9.7...git-toolbox-v2.10.0) (2026-04-14)
 
 
