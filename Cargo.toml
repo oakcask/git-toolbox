@@ -28,7 +28,7 @@ codegen-units = 1
 
 [dependencies]
 chrono = "0.4.44"
-clap = { version = "4.6.0", features = ["derive"] }
+clap = { version = "4.6.1", features = ["derive"] }
 env_logger = "0.11.10"
 git2 = { version = "0.20.4", features = ["vendored-libgit2", "vendored-openssl"] }
 log = "0.4.29"
