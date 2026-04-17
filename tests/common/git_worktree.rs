@@ -7,6 +7,7 @@ use std::{
     fs::{self, File},
     io::Write,
     path::Path,
+    process::Command,
 };
 
 /// do `git init <path>`
@@ -38,6 +39,23 @@ pub fn git_add<P: AsRef<Path>>(repo: &Repository, path: P) {
     let mut index = repo.index().unwrap();
     index.add_path(path.as_ref()).unwrap();
     index.write().unwrap();
+}
+
+/// Run `git <args...>` in the repository worktree.
+pub fn git_command(repo: &Repository, args: &[&str]) {
+    let output = Command::new("git")
+        .current_dir(repo.workdir().unwrap())
+        .args(args)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "git {:?} failed with status {}: stdout={}, stderr={}",
+        args,
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 /// Create a commit that updates `path` with explicit author and committer timestamps.

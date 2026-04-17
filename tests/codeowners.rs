@@ -7,7 +7,7 @@ mod test_log;
 
 use bare_single::bare_repo_with_committed_file;
 use git_toolbox::github::codeowners::{CodeOwners, CodeOwnersError};
-use git_worktree::{git_add, git_init, mkdir_p, write};
+use git_worktree::{git_add, git_command, git_init, git_set_config, mkdir_p, write};
 use rstest::rstest;
 use tempfile::TempDir;
 use test_log::test_logger;
@@ -128,6 +128,35 @@ fn codeowner_try_from_repo_works_for_bare_repository(#[case] path: &str) {
     assert_eq!(
         co.find_owners("src/lib.rs"),
         Some(&vec![String::from("rust-team")])
+    );
+}
+
+#[test]
+fn codeowner_try_from_repo_reads_skip_worktree_codeowners_from_index() {
+    let tmpdir = TempDir::new().unwrap();
+    let root = tmpdir.path();
+
+    let repo = git_init(root);
+    git_set_config(&repo, "user.name", "t");
+    git_set_config(&repo, "user.email", "t@example.com");
+    mkdir_p(root.join(".github"));
+    write(root.join(".github/CODEOWNERS"), b"docs/*.md @docs-team\n");
+    mkdir_p(root.join("docs"));
+    write(root.join("docs/guide.md"), b"# Guide\n");
+
+    git_add(&repo, ".github/CODEOWNERS");
+    git_add(&repo, "docs/guide.md");
+    git_command(&repo, &["commit", "-m", "init"]);
+    git_command(&repo, &["sparse-checkout", "init", "--no-cone"]);
+    std::fs::write(root.join(".git/info/sparse-checkout"), b"docs/*\n").unwrap();
+    git_command(&repo, &["read-tree", "-mu", "HEAD"]);
+
+    assert!(!root.join(".github/CODEOWNERS").exists());
+
+    let co = CodeOwners::<()>::try_from_repo(&repo).unwrap();
+    assert_eq!(
+        co.find_owners("docs/guide.md"),
+        Some(&vec![String::from("@docs-team")])
     );
 }
 
