@@ -9,7 +9,7 @@ use std::process::Command;
 
 use bare_multi::bare_repo_with_committed_files;
 use bin::git_whose_exe;
-use git_worktree::{git_add, git_init, mkdir_p, write};
+use git_worktree::{git_add, git_command, git_init, git_set_config, mkdir_p, write};
 use tempfile::TempDir;
 
 #[test]
@@ -80,6 +80,102 @@ fn git_whose_prints_owners_for_bare_repo_head_tree() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
         stdout.contains("src/lib.rs") && stdout.contains("@rust-team"),
+        "unexpected stdout: {stdout:?}"
+    );
+}
+
+#[test]
+fn git_whose_matches_skip_worktree_paths_when_codeowners_is_checked_out() {
+    let tmpdir = TempDir::new().unwrap();
+    let root = tmpdir.path();
+
+    let repo = git_init(root);
+    git_set_config(&repo, "user.name", "t");
+    git_set_config(&repo, "user.email", "t@example.com");
+    let co_path = root.join(".github/CODEOWNERS");
+    mkdir_p(co_path.parent().unwrap());
+    write(&co_path, b"docs/*.md @docs-team\n");
+
+    let doc = root.join("docs/guide.md");
+    mkdir_p(doc.parent().unwrap());
+    write(&doc, b"# Guide\n");
+
+    git_add(&repo, ".github/CODEOWNERS");
+    git_add(&repo, "docs/guide.md");
+    git_command(&repo, &["commit", "-m", "init"]);
+    git_command(&repo, &["sparse-checkout", "init", "--no-cone"]);
+    std::fs::write(
+        root.join(".git/info/sparse-checkout"),
+        b".github/CODEOWNERS\ndocs/private.md\n",
+    )
+    .unwrap();
+    git_command(&repo, &["read-tree", "-mu", "HEAD"]);
+
+    assert!(!doc.exists());
+    assert!(co_path.exists());
+
+    let exe = git_whose_exe();
+    let out = Command::new(exe)
+        .current_dir(root)
+        .args(["docs/guide.md"])
+        .output()
+        .expect("spawn git-whose");
+
+    assert!(
+        out.status.success(),
+        "git-whose failed: stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("docs/guide.md") && stdout.contains("@docs-team"),
+        "unexpected stdout: {stdout:?}"
+    );
+}
+
+#[test]
+fn git_whose_matches_skip_worktree_paths_when_codeowners_is_not_checked_out() {
+    let tmpdir = TempDir::new().unwrap();
+    let root = tmpdir.path();
+
+    let repo = git_init(root);
+    git_set_config(&repo, "user.name", "t");
+    git_set_config(&repo, "user.email", "t@example.com");
+    let co_path = root.join(".github/CODEOWNERS");
+    mkdir_p(co_path.parent().unwrap());
+    write(&co_path, b"docs/*.md @docs-team\n");
+
+    let doc = root.join("docs/guide.md");
+    mkdir_p(doc.parent().unwrap());
+    write(&doc, b"# Guide\n");
+
+    git_add(&repo, ".github/CODEOWNERS");
+    git_add(&repo, "docs/guide.md");
+    git_command(&repo, &["commit", "-m", "init"]);
+    git_command(&repo, &["sparse-checkout", "init", "--no-cone"]);
+    std::fs::write(root.join(".git/info/sparse-checkout"), b"src/*\n").unwrap();
+    git_command(&repo, &["read-tree", "-mu", "HEAD"]);
+
+    assert!(!doc.exists());
+    assert!(!co_path.exists());
+
+    let exe = git_whose_exe();
+    let out = Command::new(exe)
+        .current_dir(root)
+        .args(["docs/guide.md"])
+        .output()
+        .expect("spawn git-whose");
+
+    assert!(
+        out.status.success(),
+        "git-whose failed: stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("docs/guide.md") && stdout.contains("@docs-team"),
         "unexpected stdout: {stdout:?}"
     );
 }
