@@ -104,7 +104,11 @@ fn git_whose_matches_skip_worktree_paths_when_codeowners_is_checked_out() {
     git_add(&repo, "docs/guide.md");
     git_command(&repo, &["commit", "-m", "init"]);
     git_command(&repo, &["sparse-checkout", "init", "--no-cone"]);
-    std::fs::write(root.join(".git/info/sparse-checkout"), b".github/CODEOWNERS\ndocs/private.md\n").unwrap();
+    std::fs::write(
+        root.join(".git/info/sparse-checkout"),
+        b".github/CODEOWNERS\ndocs/private.md\n",
+    )
+    .unwrap();
     git_command(&repo, &["read-tree", "-mu", "HEAD"]);
 
     assert!(!doc.exists());
