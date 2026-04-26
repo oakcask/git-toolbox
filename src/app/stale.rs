@@ -47,9 +47,9 @@ impl Application {
             };
 
             if options.delete {
-                Command::DeleteRemoteBranches { repo, visitor }
+                Command::DeleteRemote { repo, visitor }
             } else {
-                Command::ListRemoteBranches { repo, visitor }
+                Command::ListRemote { repo, visitor }
             }
         } else {
             let visitor = LocalBranchVisitor {
@@ -59,11 +59,11 @@ impl Application {
             };
 
             if options.delete && options.push {
-                Command::DeleteUpstreamBranches { repo, visitor }
+                Command::DeleteUpstream { repo, visitor }
             } else if options.delete {
-                Command::DeleteLocalBranches { repo, visitor }
+                Command::DeleteLocal { repo, visitor }
             } else {
-                Command::ListLocalBranches { repo, visitor }
+                Command::ListLocal { repo, visitor }
             }
         };
 
@@ -76,23 +76,23 @@ impl Application {
 }
 
 enum Command {
-    DeleteUpstreamBranches {
+    DeleteUpstream {
         repo: Repository,
         visitor: LocalBranchVisitor,
     },
-    DeleteLocalBranches {
+    DeleteLocal {
         repo: Repository,
         visitor: LocalBranchVisitor,
     },
-    ListLocalBranches {
+    ListLocal {
         repo: Repository,
         visitor: LocalBranchVisitor,
     },
-    DeleteRemoteBranches {
+    DeleteRemote {
         repo: Repository,
         visitor: RemoteBranchVisitor,
     },
-    ListRemoteBranches {
+    ListRemote {
         repo: Repository,
         visitor: RemoteBranchVisitor,
     },
@@ -101,7 +101,7 @@ enum Command {
 impl Command {
     fn run(self) -> Result<(), Box<dyn Error>> {
         match self {
-            Self::DeleteUpstreamBranches { repo, visitor } => {
+            Self::DeleteUpstream { repo, visitor } => {
                 let mut refspecs = visitor.for_each_branches(
                     &repo,
                     HashMap::<String, Vec<String>>::new(),
@@ -137,7 +137,7 @@ impl Command {
 
                 Ok(())
             }
-            Self::DeleteLocalBranches { repo, visitor } => {
+            Self::DeleteLocal { repo, visitor } => {
                 visitor.for_each_branches(&repo, (), |_, mut branch| {
                     if let Some(branch_name) = branch.get().name() {
                         let branch_name = branch_name.to_owned();
@@ -148,13 +148,13 @@ impl Command {
                     Ok(())
                 })
             }
-            Self::ListLocalBranches { repo, visitor } => {
+            Self::ListLocal { repo, visitor } => {
                 visitor.for_each_branches(&repo, (), |_, branch| {
                     println!("{}", branch.get().name().unwrap());
                     Ok(())
                 })
             }
-            Self::DeleteRemoteBranches { repo, visitor } => {
+            Self::DeleteRemote { repo, visitor } => {
                 let refspecs = visitor.for_each_branches(
                     &repo,
                     Vec::new(),
@@ -172,7 +172,7 @@ impl Command {
                 push_refspecs(&repo, &mut remote, "origin", &refspecs)?;
                 Ok(())
             }
-            Self::ListRemoteBranches { repo, visitor } => {
+            Self::ListRemote { repo, visitor } => {
                 visitor.for_each_branches(&repo, (), |_, remote_ref, _| {
                     println!("{}/{}", remote_ref.remote(), remote_ref.branch());
                     Ok(())
@@ -811,7 +811,7 @@ mod tests {
             })
         })?;
 
-        assert!(matches!(app.command, Command::DeleteLocalBranches { .. }));
+        assert!(matches!(app.command, Command::DeleteLocal { .. }));
 
         Ok(())
     }
