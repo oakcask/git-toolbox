@@ -10,7 +10,7 @@ use crate::{
     reltime::Reltime,
 };
 
-pub struct StaleOptions {
+pub struct Options {
     pub remote: bool,
     pub delete: bool,
     pub push: bool,
@@ -23,7 +23,7 @@ pub struct Application {
 }
 
 impl Application {
-    pub fn from_options(options: StaleOptions) -> Result<Self, Box<dyn Error>> {
+    pub fn from_options(options: Options) -> Result<Self, Box<dyn Error>> {
         let repo = Repository::open_from_env()?;
         let config = repo.config()?;
         let configuration = Configuration::new(&config);
@@ -47,9 +47,9 @@ impl Application {
             };
 
             if options.delete {
-                Command::DeleteRemoteBranches { repo, visitor }
+                Command::DeleteRemote { repo, visitor }
             } else {
-                Command::ListRemoteBranches { repo, visitor }
+                Command::ListRemote { repo, visitor }
             }
         } else {
             let visitor = LocalBranchVisitor {
@@ -59,11 +59,11 @@ impl Application {
             };
 
             if options.delete && options.push {
-                Command::DeleteUpstreamBranches { repo, visitor }
+                Command::DeleteUpstream { repo, visitor }
             } else if options.delete {
-                Command::DeleteLocalBranches { repo, visitor }
+                Command::DeleteLocal { repo, visitor }
             } else {
-                Command::ListLocalBranches { repo, visitor }
+                Command::ListLocal { repo, visitor }
             }
         };
 
@@ -76,23 +76,23 @@ impl Application {
 }
 
 enum Command {
-    DeleteUpstreamBranches {
+    DeleteUpstream {
         repo: Repository,
         visitor: LocalBranchVisitor,
     },
-    DeleteLocalBranches {
+    DeleteLocal {
         repo: Repository,
         visitor: LocalBranchVisitor,
     },
-    ListLocalBranches {
+    ListLocal {
         repo: Repository,
         visitor: LocalBranchVisitor,
     },
-    DeleteRemoteBranches {
+    DeleteRemote {
         repo: Repository,
         visitor: RemoteBranchVisitor,
     },
-    ListRemoteBranches {
+    ListRemote {
         repo: Repository,
         visitor: RemoteBranchVisitor,
     },
@@ -101,7 +101,7 @@ enum Command {
 impl Command {
     fn run(self) -> Result<(), Box<dyn Error>> {
         match self {
-            Self::DeleteUpstreamBranches { repo, visitor } => {
+            Self::DeleteUpstream { repo, visitor } => {
                 let mut refspecs = visitor.for_each_branches(
                     &repo,
                     HashMap::<String, Vec<String>>::new(),
@@ -137,7 +137,7 @@ impl Command {
 
                 Ok(())
             }
-            Self::DeleteLocalBranches { repo, visitor } => {
+            Self::DeleteLocal { repo, visitor } => {
                 visitor.for_each_branches(&repo, (), |_, mut branch| {
                     if let Some(branch_name) = branch.get().name() {
                         let branch_name = branch_name.to_owned();
@@ -148,13 +148,13 @@ impl Command {
                     Ok(())
                 })
             }
-            Self::ListLocalBranches { repo, visitor } => {
+            Self::ListLocal { repo, visitor } => {
                 visitor.for_each_branches(&repo, (), |_, branch| {
                     println!("{}", branch.get().name().unwrap());
                     Ok(())
                 })
             }
-            Self::DeleteRemoteBranches { repo, visitor } => {
+            Self::DeleteRemote { repo, visitor } => {
                 let refspecs = visitor.for_each_branches(
                     &repo,
                     Vec::new(),
@@ -172,7 +172,7 @@ impl Command {
                 push_refspecs(&repo, &mut remote, "origin", &refspecs)?;
                 Ok(())
             }
-            Self::ListRemoteBranches { repo, visitor } => {
+            Self::ListRemote { repo, visitor } => {
                 visitor.for_each_branches(&repo, (), |_, remote_ref, _| {
                     println!("{}/{}", remote_ref.remote(), remote_ref.branch());
                     Ok(())
@@ -351,7 +351,7 @@ fn usage_error(message: impl Into<String>) -> Box<dyn Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Application, Command, LocalBranchVisitor, RemoteBranchVisitor, StaleOptions};
+    use super::{Application, Command, LocalBranchVisitor, Options, RemoteBranchVisitor};
     use chrono::{Duration, Local};
     use git2::{BranchType, ConfigLevel, Oid, Repository, Signature};
     use std::sync::Mutex;
@@ -511,7 +511,7 @@ mod tests {
         result
     }
 
-    fn app(options: StaleOptions) -> Result<Application, Box<dyn std::error::Error>> {
+    fn app(options: Options) -> Result<Application, Box<dyn std::error::Error>> {
         Application::from_options(options)
     }
 
@@ -734,7 +734,7 @@ mod tests {
     fn app_rejects_remote_without_since() -> Result<(), Box<dyn std::error::Error>> {
         let (tmpdir, _repo) = create_repo()?;
         let result = with_cwd(tmpdir.path(), || {
-            app(StaleOptions {
+            app(Options {
                 remote: true,
                 delete: false,
                 push: false,
@@ -757,7 +757,7 @@ mod tests {
         let (tmpdir, repo) = create_repo()?;
         repo.remote("origin", "file:///tmp/origin.git")?;
         let result = with_cwd(tmpdir.path(), || {
-            app(StaleOptions {
+            app(Options {
                 remote: true,
                 delete: true,
                 push: false,
@@ -780,7 +780,7 @@ mod tests {
         let tmpdir = TempDir::new()?;
         let _repo = Repository::init(tmpdir.path())?;
         let result = with_cwd(tmpdir.path(), || {
-            app(StaleOptions {
+            app(Options {
                 remote: true,
                 delete: false,
                 push: false,
@@ -802,7 +802,7 @@ mod tests {
     fn local_mode_behavior_is_unchanged() -> Result<(), Box<dyn std::error::Error>> {
         let (tmpdir, _repo) = create_repo()?;
         let app = with_cwd(tmpdir.path(), || {
-            app(StaleOptions {
+            app(Options {
                 remote: false,
                 delete: true,
                 push: false,
@@ -811,7 +811,7 @@ mod tests {
             })
         })?;
 
-        assert!(matches!(app.command, Command::DeleteLocalBranches { .. }));
+        assert!(matches!(app.command, Command::DeleteLocal { .. }));
 
         Ok(())
     }
