@@ -149,6 +149,20 @@ fn set_origin_head(repo: &Repository, branch: &str) {
     .unwrap();
 }
 
+fn track_branch_to_remote(repo: &Repository, remote_name: &str, branch: &str) {
+    repo.reference(
+        &format!("refs/remotes/{remote_name}/{branch}"),
+        branch_target(repo, branch),
+        true,
+        "create remote-tracking ref",
+    )
+    .unwrap();
+    repo.find_branch(branch, BranchType::Local)
+        .unwrap()
+        .set_upstream(Some(&format!("{remote_name}/{branch}")))
+        .unwrap();
+}
+
 fn sorted_stdout_lines(output: &Output) -> Vec<String> {
     let mut lines = String::from_utf8_lossy(&output.stdout)
         .lines()
@@ -294,6 +308,25 @@ fn git_stale_delete_removes_selected_local_branches_only() {
 }
 
 #[test]
+fn git_stale_delete_prefix_filters_local_branch_deletions() {
+    let fixture = StaleFixture::new();
+
+    let output = fixture.run(&["--since", "3mo", "--delete", "feature/"]);
+
+    assert!(
+        output.status.success(),
+        "git-stale failed: stderr={}",
+        stderr_text(&output)
+    );
+    assert!(sorted_stdout_lines(&output).is_empty());
+
+    let repo = fixture.worktree_repo();
+    assert!(local_branch_exists(&repo, "topic/local-only"));
+    assert!(local_branch_exists(&repo, "feature/new"));
+    assert!(!local_branch_exists(&repo, "feature/old"));
+}
+
+#[test]
 fn git_stale_delete_push_removes_selected_upstream_branches_only() {
     let fixture = StaleFixture::new();
 
@@ -316,6 +349,39 @@ fn git_stale_delete_push_removes_selected_upstream_branches_only() {
     assert!(ref_exists(&origin_repo, "refs/heads/release/v1"));
     assert!(ref_exists(&origin_repo, "refs/heads/feature/new"));
     assert!(!ref_exists(&origin_repo, "refs/heads/feature/old"));
+}
+
+#[test]
+fn git_stale_delete_push_removes_upstreams_for_each_tracked_remote() {
+    let fixture = StaleFixture::new();
+    let fork_root = fixture.worktree_root.parent().unwrap().join("fork.git");
+    let _fork = Repository::init_bare(&fork_root).unwrap();
+
+    let repo = fixture.worktree_repo();
+    let old = Time::new(
+        (chrono::Local::now() - chrono::Duration::days(150)).timestamp(),
+        0,
+    );
+    commit_branch(&repo, "feature/fork-old", old);
+    git_add_remote(&repo, "fork", &file_url(&fork_root));
+    push_branch(&repo, "fork", "feature/fork-old");
+    track_branch_to_remote(&repo, "fork", "feature/fork-old");
+    git_checkout_branch(&repo, "main");
+
+    let output = fixture.run(&["--since", "3mo", "--delete", "--push", "feature/"]);
+
+    assert!(
+        output.status.success(),
+        "git-stale failed: stderr={}",
+        stderr_text(&output)
+    );
+    assert!(sorted_stdout_lines(&output).is_empty());
+
+    let origin_repo = fixture.origin_repo();
+    assert!(!ref_exists(&origin_repo, "refs/heads/feature/old"));
+
+    let fork_repo = Repository::open_bare(&fork_root).unwrap();
+    assert!(!ref_exists(&fork_repo, "refs/heads/feature/fork-old"));
 }
 
 #[test]
@@ -385,4 +451,33 @@ fn git_stale_remote_delete_push_removes_selected_origin_branches() {
         "remote delete did not remove origin/feature/old; stderr={}; refs={origin_refs:?}",
         stderr_text(&output)
     );
+}
+
+#[test]
+fn git_stale_remote_delete_push_prefix_filters_origin_branch_deletions() {
+    let fixture = StaleFixture::new();
+    let repo = fixture.worktree_repo();
+    let old = Time::new(
+        (chrono::Local::now() - chrono::Duration::days(150)).timestamp(),
+        0,
+    );
+    commit_branch(&repo, "bugfix/old", old);
+    push_branch(&repo, "origin", "bugfix/old");
+    fetch_remote_tracking_refs(&repo, "origin");
+    git_checkout_branch(&repo, "main");
+
+    let output = fixture.run(&[
+        "--remote", "--since", "3mo", "--delete", "--push", "feature/",
+    ]);
+
+    assert!(
+        output.status.success(),
+        "git-stale failed: stderr={}",
+        stderr_text(&output)
+    );
+    assert!(sorted_stdout_lines(&output).is_empty());
+
+    let origin_repo = fixture.origin_repo();
+    assert!(!ref_exists(&origin_repo, "refs/heads/feature/old"));
+    assert!(ref_exists(&origin_repo, "refs/heads/bugfix/old"));
 }
