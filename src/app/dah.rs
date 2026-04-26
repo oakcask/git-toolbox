@@ -935,9 +935,9 @@ mod tests {
             let initial_oid = odb.write(ObjectType::Blob, "initial\n".as_bytes()).unwrap();
             let author = Signature::now("foo", "foo@example.com").unwrap();
             let mut tree = repo.treebuilder(None).unwrap();
-            tree.insert("staged", initial_oid.clone(), 0o100644)
+            tree.insert("staged", initial_oid, 0o100644)
                 .unwrap();
-            tree.insert("unstaged", initial_oid.clone(), 0o100644)
+            tree.insert("unstaged", initial_oid, 0o100644)
                 .unwrap();
             let tree = tree.write().unwrap();
             let tree = repo.find_tree(tree).unwrap();

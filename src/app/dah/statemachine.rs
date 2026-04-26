@@ -283,11 +283,9 @@ mod tests {
 
         fn is_remote_head(&self) -> Result<bool, Self::Error> {
             if let Some(Some(branch)) = self.head_ref.as_ref().map(|o| o.branch()) {
-                if let Some(upstream) = &self.upstream {
-                    if let Some((o, _, _, is_head)) = upstream {
-                        if branch == o.branch() && *is_head {
-                            return Ok(true);
-                        }
+                if let Some(Some((o, _, _, is_head))) = self.upstream.as_ref() {
+                    if branch == o.branch() && *is_head {
+                        return Ok(true);
                     }
                 }
             }
