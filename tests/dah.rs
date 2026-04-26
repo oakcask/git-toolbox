@@ -112,11 +112,7 @@ fn push_branch(repo: &Repository, remote_name: &str, branch: &str) {
 }
 
 fn current_branch(repo: &Repository) -> String {
-    repo.head()
-        .unwrap()
-        .shorthand()
-        .unwrap()
-        .to_owned()
+    repo.head().unwrap().shorthand().unwrap().to_owned()
 }
 
 fn head_message(repo: &Repository) -> String {
@@ -194,7 +190,11 @@ fn git_dah_renames_default_branch_commits_and_pushes() {
     assert_branch_matches(&branch, r"\Aship-it-dah[0-9a-z]{26}\z");
     assert!(!local_branch_exists(&repo, "main"));
     assert_eq!("Ship it", head_message(&repo));
-    assert!(repo.find_branch(&branch, BranchType::Local).unwrap().upstream().is_ok());
+    assert!(repo
+        .find_branch(&branch, BranchType::Local)
+        .unwrap()
+        .upstream()
+        .is_ok());
 
     let origin = fixture.origin_repo();
     assert!(ref_exists(&origin, &format!("refs/heads/{branch}")));
