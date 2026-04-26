@@ -351,7 +351,7 @@ fn usage_error(message: impl Into<String>) -> Box<dyn Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Application, Command, LocalBranchVisitor, RemoteBranchVisitor, Options};
+    use super::{Application, Command, LocalBranchVisitor, Options, RemoteBranchVisitor};
     use chrono::{Duration, Local};
     use git2::{BranchType, ConfigLevel, Oid, Repository, Signature};
     use std::sync::Mutex;
