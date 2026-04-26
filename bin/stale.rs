@@ -1,6 +1,6 @@
 use clap::Parser;
 use git_toolbox::{
-    app::stale::{Application, StaleOptions},
+    app::stale::{Application, Options},
     reltime::Reltime,
 };
 use log::error;
@@ -33,7 +33,7 @@ struct Cli {
 
 impl Cli {
     fn into_app(self) -> Result<Application, Box<dyn Error>> {
-        Application::from_options(StaleOptions {
+        Application::from_options(Options {
             remote: self.remote,
             delete: self.delete,
             push: self.push,

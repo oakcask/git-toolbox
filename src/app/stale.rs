@@ -10,7 +10,7 @@ use crate::{
     reltime::Reltime,
 };
 
-pub struct StaleOptions {
+pub struct Options {
     pub remote: bool,
     pub delete: bool,
     pub push: bool,
@@ -23,7 +23,7 @@ pub struct Application {
 }
 
 impl Application {
-    pub fn from_options(options: StaleOptions) -> Result<Self, Box<dyn Error>> {
+    pub fn from_options(options: Options) -> Result<Self, Box<dyn Error>> {
         let repo = Repository::open_from_env()?;
         let config = repo.config()?;
         let configuration = Configuration::new(&config);
@@ -351,7 +351,7 @@ fn usage_error(message: impl Into<String>) -> Box<dyn Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Application, Command, LocalBranchVisitor, RemoteBranchVisitor, StaleOptions};
+    use super::{Application, Command, LocalBranchVisitor, RemoteBranchVisitor, Options};
     use chrono::{Duration, Local};
     use git2::{BranchType, ConfigLevel, Oid, Repository, Signature};
     use std::sync::Mutex;
@@ -511,7 +511,7 @@ mod tests {
         result
     }
 
-    fn app(options: StaleOptions) -> Result<Application, Box<dyn std::error::Error>> {
+    fn app(options: Options) -> Result<Application, Box<dyn std::error::Error>> {
         Application::from_options(options)
     }
 
@@ -734,7 +734,7 @@ mod tests {
     fn app_rejects_remote_without_since() -> Result<(), Box<dyn std::error::Error>> {
         let (tmpdir, _repo) = create_repo()?;
         let result = with_cwd(tmpdir.path(), || {
-            app(StaleOptions {
+            app(Options {
                 remote: true,
                 delete: false,
                 push: false,
@@ -757,7 +757,7 @@ mod tests {
         let (tmpdir, repo) = create_repo()?;
         repo.remote("origin", "file:///tmp/origin.git")?;
         let result = with_cwd(tmpdir.path(), || {
-            app(StaleOptions {
+            app(Options {
                 remote: true,
                 delete: true,
                 push: false,
@@ -780,7 +780,7 @@ mod tests {
         let tmpdir = TempDir::new()?;
         let _repo = Repository::init(tmpdir.path())?;
         let result = with_cwd(tmpdir.path(), || {
-            app(StaleOptions {
+            app(Options {
                 remote: true,
                 delete: false,
                 push: false,
@@ -802,7 +802,7 @@ mod tests {
     fn local_mode_behavior_is_unchanged() -> Result<(), Box<dyn std::error::Error>> {
         let (tmpdir, _repo) = create_repo()?;
         let app = with_cwd(tmpdir.path(), || {
-            app(StaleOptions {
+            app(Options {
                 remote: false,
                 delete: true,
                 push: false,
