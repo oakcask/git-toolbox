@@ -24,7 +24,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - id: gh-token-gen
-        uses: oakcask/gh-token-gen@e3d2caa8ef6111f5a516995d88890d3fb09206e3 # v5.0.0
+        uses: oakcask/gh-token-gen@4bd7b29d36a07b1de07b49c9fdbfe16c03d00bc2 # v5.1.0
         with:
           app-id: ${{ secrets.TOKEN_GEN_APP_ID }}
           private-key: ${{ secrets.TOKEN_GEN_PRIVATE_KEY }}
@@ -90,7 +90,7 @@ jobs:
           path: dist
           merge-multiple: true
       - id: gh-token-gen
-        uses: oakcask/gh-token-gen@e3d2caa8ef6111f5a516995d88890d3fb09206e3 # v5.0.0
+        uses: oakcask/gh-token-gen@4bd7b29d36a07b1de07b49c9fdbfe16c03d00bc2 # v5.1.0
         with:
           app-id: ${{ secrets.TOKEN_GEN_APP_ID }}
           private-key: ${{ secrets.TOKEN_GEN_PRIVATE_KEY }}
