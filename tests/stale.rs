@@ -4,7 +4,12 @@ mod bin;
 mod git_worktree;
 
 use git2::{BranchType, Repository, Time};
-use std::process::{Command, Output};
+use std::{
+    ffi::OsString,
+    fs,
+    os::unix::ffi::OsStringExt,
+    process::{Command, Output},
+};
 use tempfile::TempDir;
 use url::Url;
 
@@ -191,6 +196,14 @@ fn sorted_ref_names(repo: &Repository, prefix: &str) -> Vec<String> {
     refs
 }
 
+fn create_non_utf8_ref(repo: &Repository, namespace: &str) {
+    let ref_dir = repo.path().join(namespace);
+    fs::create_dir_all(&ref_dir).unwrap();
+    let ref_path = ref_dir.join(OsString::from_vec(vec![b'b', b'a', b'd', b'-', 0xff]));
+    let target = repo.head().unwrap().target().unwrap();
+    fs::write(ref_path, format!("{target}\n")).unwrap();
+}
+
 #[test]
 fn git_stale_without_since_lists_only_local_branches_without_upstream() {
     let fixture = StaleFixture::new();
@@ -241,6 +254,25 @@ fn git_stale_since_prefix_filters_local_branch_names() {
     );
     assert_eq!(
         vec!["refs/heads/feature/old".to_owned()],
+        sorted_stdout_lines(&output)
+    );
+}
+
+#[test]
+fn git_stale_ignores_non_utf8_local_branch_names() {
+    let fixture = StaleFixture::new();
+    let repo = fixture.worktree_repo();
+    create_non_utf8_ref(&repo, "refs/heads");
+
+    let output = fixture.run(&[]);
+
+    assert!(
+        output.status.success(),
+        "git-stale failed: stderr={}",
+        stderr_text(&output)
+    );
+    assert_eq!(
+        vec!["refs/heads/topic/local-only".to_owned()],
         sorted_stdout_lines(&output)
     );
 }
@@ -387,6 +419,25 @@ fn git_stale_delete_push_removes_upstreams_for_each_tracked_remote() {
 #[test]
 fn git_stale_remote_since_lists_matching_origin_tracking_refs() {
     let fixture = StaleFixture::new();
+
+    let output = fixture.run(&["--remote", "--since", "3mo"]);
+
+    assert!(
+        output.status.success(),
+        "git-stale failed: stderr={}",
+        stderr_text(&output)
+    );
+    assert_eq!(
+        vec!["origin/feature/old".to_owned()],
+        sorted_stdout_lines(&output)
+    );
+}
+
+#[test]
+fn git_stale_ignores_non_utf8_remote_branch_names() {
+    let fixture = StaleFixture::new();
+    let repo = fixture.worktree_repo();
+    create_non_utf8_ref(&repo, "refs/remotes/origin");
 
     let output = fixture.run(&["--remote", "--since", "3mo"]);
 
