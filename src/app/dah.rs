@@ -70,7 +70,7 @@ impl Collector for Application {
                 remote.connect_auth(git2::Direction::Fetch, Some(cb), None)?;
 
                 if let Ok(remote_default_branch) = remote.default_branch() {
-                    if let Some(remote_default_branch) = remote_default_branch.as_str() {
+                    if let Ok(remote_default_branch) = remote_default_branch.as_str() {
                         let remote_default_branch = HeadRef::new(remote_default_branch).unwrap();
                         let remote_default_branch = remote_default_branch.branch().unwrap();
                         if branch == remote_default_branch {
@@ -337,7 +337,7 @@ impl Application {
         let config = self.repo.config()?;
         let prefix = Configuration::new(&config).dah_branch_prefix()?;
 
-        let mesg = commit.message().and_then(|m| m.lines().next());
+        let mesg = commit.message().ok().and_then(|m| m.lines().next());
         Ok(generate_branch_name_from_commit_message(prefix, mesg))
     }
 
@@ -619,6 +619,40 @@ mod tests {
             Application::new(local).is_remote_head()?,
             "expected local's HEAD is remote HEAD"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn application_is_remote_head_ignores_non_utf8_remote_default_branch(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let origin = TempDir::new()?;
+        let origin_path = origin.path();
+        let origin = Repository::init_bare(origin_path)?;
+        let local = TempDir::new()?;
+        let local = Repository::init_bare(local.path())?;
+
+        let author = Signature::now("foo", "foo@example.com")?;
+        let tree = origin.treebuilder(None)?;
+        let tree = tree.write()?;
+        let tree = origin.find_tree(tree)?;
+        origin.commit(Some("refs/heads/main"), &author, &author, "c1", &tree, &[])?;
+        origin.set_head("refs/heads/main")?;
+
+        {
+            let mut remote =
+                local.remote("origin", &format!("file://{}", origin_path.display()))?;
+            remote.fetch(&["main:refs/remotes/origin/main"], None, None)?;
+            let remote_branch = local.find_branch("origin/main", git2::BranchType::Remote)?;
+            let remote_head = remote_branch.get().peel_to_commit()?;
+            let mut branch = local.branch("main", &remote_head, true)?;
+            branch.set_upstream(Some("origin/main"))?;
+            local.set_head("refs/heads/main")?;
+        }
+
+        fs::write(origin_path.join("HEAD"), b"ref: refs/heads/invalid-\xff\n")?;
+
+        assert!(!Application::new(local).is_remote_head()?);
 
         Ok(())
     }

@@ -5,7 +5,7 @@ mod git_worktree;
 
 use git2::{
     build::{CloneLocal, RepoBuilder},
-    BranchType, Repository, Status,
+    BranchType, ObjectType, Repository, Status,
 };
 use regex::Regex;
 use std::{
@@ -158,6 +158,27 @@ fn ahead_behind(repo: &Repository, local_ref: &str, upstream_ref: &str) -> (usiz
     repo.graph_ahead_behind(local_oid, upstream_oid).unwrap()
 }
 
+fn commit_with_raw_message(repo: &Repository, message: &[u8]) {
+    let parent = repo.head().unwrap().peel_to_commit().unwrap();
+    let tree = parent.tree().unwrap();
+    let mut raw_commit = format!(
+        "tree {}\nparent {}\nauthor t <t@example.com> 1700000100 +0000\ncommitter t <t@example.com> 1700000100 +0000\n\n",
+        tree.id(),
+        parent.id()
+    )
+    .into_bytes();
+    raw_commit.extend_from_slice(message);
+    raw_commit.push(b'\n');
+
+    let oid = repo
+        .odb()
+        .unwrap()
+        .write(ObjectType::Commit, &raw_commit)
+        .unwrap();
+    repo.reference("refs/heads/main", oid, true, "test commit")
+        .unwrap();
+}
+
 #[test]
 fn git_dah_step_stages_only_one_action() {
     let fixture = DahFixture::new();
@@ -213,6 +234,24 @@ fn git_dah_detached_head_creates_branch_and_pushes() {
     let repo = fixture.worktree_repo();
     let branch = current_branch(&repo);
     assert_branch_matches(&branch, r"\Abase-dah[0-9a-z]{26}\z");
+    assert!(ref_exists(
+        &fixture.origin_repo(),
+        &format!("refs/heads/{branch}")
+    ));
+}
+
+#[test]
+fn git_dah_uses_fallback_branch_name_for_non_utf8_commit_message() {
+    let fixture = DahFixture::new();
+    commit_with_raw_message(&fixture.worktree_repo(), b"invalid \xff message");
+
+    let output = fixture.run(&["--no-fetch"]);
+
+    assert_success(&output);
+
+    let repo = fixture.worktree_repo();
+    let branch = current_branch(&repo);
+    assert_branch_matches(&branch, r"\Adah[0-9a-z]{26}\z");
     assert!(ref_exists(
         &fixture.origin_repo(),
         &format!("refs/heads/{branch}")
