@@ -70,7 +70,7 @@ impl Collector for Application {
                 remote.connect_auth(git2::Direction::Fetch, Some(cb), None)?;
 
                 if let Ok(remote_default_branch) = remote.default_branch() {
-                    if let Some(remote_default_branch) = remote_default_branch.as_str() {
+                    if let Ok(remote_default_branch) = remote_default_branch.as_str() {
                         let remote_default_branch = HeadRef::new(remote_default_branch).unwrap();
                         let remote_default_branch = remote_default_branch.branch().unwrap();
                         if branch == remote_default_branch {
@@ -337,7 +337,7 @@ impl Application {
         let config = self.repo.config()?;
         let prefix = Configuration::new(&config).dah_branch_prefix()?;
 
-        let mesg = commit.message().and_then(|m| m.lines().next());
+        let mesg = commit.message().ok().and_then(|m| m.lines().next());
         Ok(generate_branch_name_from_commit_message(prefix, mesg))
     }
 

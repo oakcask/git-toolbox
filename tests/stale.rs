@@ -183,7 +183,7 @@ fn sorted_ref_names(repo: &Repository, prefix: &str) -> Vec<String> {
         .unwrap()
         .filter_map(|reference| {
             let reference = reference.unwrap();
-            let name = reference.name()?.to_owned();
+            let name = reference.name().ok()?.to_owned();
             name.starts_with(prefix).then_some(name)
         })
         .collect::<Vec<_>>();

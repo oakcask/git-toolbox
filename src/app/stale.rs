@@ -110,9 +110,10 @@ impl Command {
                         let upstream = upstream.get();
                         let upstream = upstream
                             .name()
+                            .ok()
                             .and_then(|name| name.strip_prefix("refs/remotes/"))
                             .and_then(|name| name.split('/').next());
-                        let branch_name = branch.get().name();
+                        let branch_name = branch.get().name().ok();
 
                         if let (Some(remote_name), Some(branch_name)) = (upstream, branch_name) {
                             info!("branch '{branch_name}' will be deleted from {remote_name}");
@@ -139,7 +140,7 @@ impl Command {
             }
             Self::DeleteLocal { repo, visitor } => {
                 visitor.for_each_branches(&repo, (), |_, mut branch| {
-                    if let Some(branch_name) = branch.get().name() {
+                    if let Ok(branch_name) = branch.get().name() {
                         let branch_name = branch_name.to_owned();
                         if let Err(error) = branch.delete() {
                             warn!("failed to remove branch '{branch_name}': {error}");
@@ -289,7 +290,7 @@ impl RemoteBranchVisitor {
         let mut st = init;
         for branch in repo.branches(Some(BranchType::Remote))? {
             let (branch, _) = branch?;
-            let Some(remote_ref_name) = branch.get().name() else {
+            let Ok(remote_ref_name) = branch.get().name() else {
                 continue;
             };
             let remote_ref = RemoteRef::new(remote_ref_name.to_owned())?;
