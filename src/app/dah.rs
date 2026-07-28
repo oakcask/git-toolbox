@@ -453,7 +453,7 @@ fn generate_branch_name_from_commit_message(prefix: String, mesg: Option<&str>) 
         branch_name.push_str("dah");
     }
 
-    let mut random = Ulid::new().to_string();
+    let mut random = Ulid::generate().to_string();
     random.make_ascii_lowercase();
     branch_name.push_str(&random);
 
