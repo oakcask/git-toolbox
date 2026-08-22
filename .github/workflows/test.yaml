@@ -20,12 +20,12 @@ jobs:
         with:
           app-id: ${{ secrets.TOKEN_GEN_APP_ID }}
           private-key: ${{ secrets.TOKEN_GEN_PRIVATE_KEY }}
-      - uses: int128/update-generated-files-action@821b0e0f25930c953a1a66e48d71bf0ae6ab15b3 # v2
+      - uses: int128/update-generated-files-action@4d9ed59b1c0673b7a42be5dbb71b993f96d4beb7 # v2
         with:
           commit-message: "style: `cargo --locked fmt`"
           token: ${{ steps.gh-token-gen.outputs.token }}
       - run: cargo --locked clippy --fix
-      - uses: int128/update-generated-files-action@821b0e0f25930c953a1a66e48d71bf0ae6ab15b3 # v2
+      - uses: int128/update-generated-files-action@4d9ed59b1c0673b7a42be5dbb71b993f96d4beb7 # v2
         with:
           commit-message: "fix: `cargo --locked clippy --fix`"
           token: ${{ steps.gh-token-gen.outputs.token }}
