@@ -5,6 +5,12 @@
     "customManagers:githubActionsVersions",
     "helpers:pinGitHubActionDigests"
   ],
+  "fetchChangeLogs": "off",
+  "prBodyColumns": [
+    "Package",
+    "Update",
+    "Change"
+  ],
   "prConcurrentLimit": 1,
   "packageRules": [
     {
