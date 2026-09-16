@@ -6,6 +6,7 @@
     "helpers:pinGitHubActionDigests"
   ],
   "fetchChangeLogs": "off",
+  "prCreation": "immediate",
   "prBodyColumns": [
     "Package",
     "Update",
