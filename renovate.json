@@ -22,6 +22,17 @@
       "automerge": true
     },
     {
+      "matchDatasources": [
+        "npm"
+      ],
+      "matchDepNames": [
+        "renovate"
+      ],
+      "schedule": [
+        "* * * * 0"
+      ]
+    },
+    {
       "matchDepTypes":[
         "action"
       ],
