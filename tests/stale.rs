@@ -15,7 +15,7 @@ use url::Url;
 
 use bin::git_stale_exe;
 use git_worktree::{
-    git_add_remote, git_checkout_branch, git_commit_at, git_init_with_initial_commit,
+    git_add_remote, git_checkout_branch, git_command, git_commit_at, git_init_with_initial_commit,
     git_set_config, local_branch_exists, ref_exists,
 };
 
@@ -209,6 +209,37 @@ fn git_stale_without_since_lists_only_local_branches_without_upstream() {
     let fixture = StaleFixture::new();
 
     let output = fixture.run(&[]);
+
+    assert!(
+        output.status.success(),
+        "git-stale failed: stderr={}",
+        stderr_text(&output)
+    );
+    assert_eq!(
+        vec!["refs/heads/topic/local-only".to_owned()],
+        sorted_stdout_lines(&output)
+    );
+}
+
+#[test]
+fn git_stale_lists_branches_from_linked_worktree() {
+    let fixture = StaleFixture::new();
+    let linked_root = fixture.worktree_root.parent().unwrap().join("linked");
+    git_command(
+        &fixture.worktree_repo(),
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "linked",
+            linked_root.to_str().unwrap(),
+        ],
+    );
+
+    let output = Command::new(git_stale_exe())
+        .current_dir(linked_root)
+        .output()
+        .expect("spawn git-stale");
 
     assert!(
         output.status.success(),

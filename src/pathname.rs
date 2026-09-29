@@ -44,7 +44,9 @@ pub fn normalize_paths(
     repo: &Repository,
     paths: Vec<String>,
 ) -> Result<Vec<String>, NormalizePathError> {
-    let repo_root = repo.path().parent().unwrap();
+    let repo_root = repo.workdir().ok_or(NormalizePathError::RuntimeError(
+        "repository has no working directory",
+    ))?;
     let mut workdir_paths = Vec::new();
     for path in paths {
         let path = Path::new(&path);
