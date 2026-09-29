@@ -198,6 +198,39 @@ fn git_dah_step_stages_only_one_action() {
 }
 
 #[test]
+fn git_dah_runs_from_linked_worktree() {
+    let fixture = DahFixture::new();
+    let linked_root = fixture.worktree_root.parent().unwrap().join("linked");
+    git_command(
+        &fixture.worktree_repo(),
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "linked",
+            linked_root.to_str().unwrap(),
+        ],
+    );
+    fs::write(linked_root.join("tracked.txt"), "linked\n").unwrap();
+
+    let output = Command::new(git_dah_exe())
+        .current_dir(&linked_root)
+        .env("GIT_EDITOR", &fixture.editor_path)
+        .env("GIT_DAH_TEST_MESSAGE", "Linked worktree")
+        .args(["--step", "--no-fetch"])
+        .output()
+        .expect("spawn git-dah");
+
+    assert_success(&output);
+
+    let repo = Repository::open(linked_root).unwrap();
+    assert_eq!("linked", current_branch(&repo));
+    let status = repo.status_file(Path::new("tracked.txt")).unwrap();
+    assert!(status.contains(Status::INDEX_MODIFIED));
+    assert!(!status.contains(Status::WT_MODIFIED));
+}
+
+#[test]
 fn git_dah_renames_default_branch_commits_and_pushes() {
     let fixture = DahFixture::new();
     fs::write(fixture.worktree_root.join("tracked.txt"), "release\n").unwrap();

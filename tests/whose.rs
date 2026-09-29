@@ -50,6 +50,49 @@ fn git_whose_prints_owners_for_indexed_paths() {
 }
 
 #[test]
+fn git_whose_prints_owners_from_linked_worktree() {
+    let tmpdir = TempDir::new().unwrap();
+    let root = tmpdir.path().join("main");
+    let linked = tmpdir.path().join("linked");
+
+    let repo = git_init(&root);
+    git_set_config(&repo, "user.name", "t");
+    git_set_config(&repo, "user.email", "t@example.com");
+
+    let co_path = root.join(".github/CODEOWNERS");
+    mkdir_p(co_path.parent().unwrap());
+    write(co_path, b"*.rs @rust-team\n");
+
+    let src = root.join("src/lib.rs");
+    mkdir_p(src.parent().unwrap());
+    write(&src, b"fn f() {}\n");
+
+    git_add(&repo, ".github/CODEOWNERS");
+    git_add(&repo, "src/lib.rs");
+    git_command(&repo, &["commit", "-m", "init"]);
+    git_command(
+        &repo,
+        &["worktree", "add", "-b", "linked", linked.to_str().unwrap()],
+    );
+
+    let exe = git_whose_exe();
+    let out = Command::new(exe)
+        .current_dir(linked)
+        .args(["src/lib.rs"])
+        .output()
+        .expect("spawn git-whose");
+
+    assert!(
+        out.status.success(),
+        "git-whose failed: stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(stdout, "src/lib.rs: @rust-team\n");
+}
+
+#[test]
 fn git_whose_prints_owners_for_bare_repo_head_tree() {
     let tmpdir = TempDir::new().unwrap();
     let root = tmpdir.path();
