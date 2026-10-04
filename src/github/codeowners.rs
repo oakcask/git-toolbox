@@ -33,11 +33,9 @@ impl TryFrom<String> for Record {
     type Error = CodeOwnersEntryError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let value = if let Some((i, _)) = value.chars().enumerate().find(|(_, c)| c == &'#') {
-            &value[0..i]
-        } else {
-            &value[..]
-        };
+        let value = value
+            .split_once('#')
+            .map_or(value.as_str(), |(line, _)| line);
 
         let mut iter = value.split_whitespace();
         if let Some(pat) = iter.next() {
@@ -91,6 +89,41 @@ mod tests {
                 Ok(Record {
                     pattern: "*".to_string(),
                     owners: vec!["@foo".to_string(), "@bar".to_string()],
+                }),
+            ),
+            (
+                "é# comment",
+                Ok(Record {
+                    pattern: "é".to_string(),
+                    owners: vec![],
+                }),
+            ),
+            (
+                "日本語/ @owner # comment",
+                Ok(Record {
+                    pattern: "日本語/".to_string(),
+                    owners: vec!["@owner".to_string()],
+                }),
+            ),
+            (
+                "* @日本語 @😀 # comment",
+                Ok(Record {
+                    pattern: "*".to_string(),
+                    owners: vec!["@日本語".to_string(), "@😀".to_string()],
+                }),
+            ),
+            (
+                "😀/ # comment",
+                Ok(Record {
+                    pattern: "😀/".to_string(),
+                    owners: vec![],
+                }),
+            ),
+            (
+                "日本語/ @日本語",
+                Ok(Record {
+                    pattern: "日本語/".to_string(),
+                    owners: vec!["@日本語".to_string()],
                 }),
             ),
         ];

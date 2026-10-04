@@ -175,3 +175,21 @@ fn codeowner_debug_marks_only_last_match_effective() {
     assert!(matches[2].is_effective());
     assert_eq!(matches[2].owners(), &vec![String::from("@lib-team")]);
 }
+
+#[test]
+fn codeowner_unicode_before_inline_comment_preserves_owners_and_precedence() {
+    let data = "* @default\n日本語/ @team @日本語 # comment\n日本語/非公開/ # no owners\n";
+    let co = CodeOwners::<()>::try_from_bufread(data.as_bytes()).unwrap();
+
+    let owners = vec![String::from("@team"), String::from("@日本語")];
+    assert_eq!(co.find_owners("日本語/file.rs"), Some(&owners));
+    assert_eq!(co.find_owners("日本語/非公開/file.rs"), Some(&vec![]));
+
+    let matches = co.debug("日本語/非公開/file.rs").collect::<Vec<_>>();
+    assert_eq!(matches.len(), 3);
+    assert!(!matches[0].is_effective());
+    assert!(!matches[1].is_effective());
+    assert_eq!(matches[1].owners(), &owners);
+    assert!(matches[2].is_effective());
+    assert!(matches[2].owners().is_empty());
+}
