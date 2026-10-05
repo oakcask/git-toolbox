@@ -20,6 +20,12 @@ struct Cli {
     delete: bool,
     #[arg(
         long,
+        conflicts_with_all = ["remote", "push"],
+        help = "Remove worktrees for selected local branches; combine with --delete to also delete branches"
+    )]
+    delete_worktree: bool,
+    #[arg(
+        long,
         help = "Combined with --delete, perform deletion on remote repository instead"
     )]
     push: bool,
@@ -36,6 +42,7 @@ impl Cli {
         Application::from_options(Options {
             remote: self.remote,
             delete: self.delete,
+            delete_worktree: self.delete_worktree,
             push: self.push,
             since: self.since,
             branches: self.branches,

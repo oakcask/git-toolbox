@@ -82,7 +82,7 @@ Options:
       --cooperative    Extra safety for team programming; meaning always rebase HEAD onto the remote branch and don't push with force [aliases: --no-force]
       --only-staged    Do not commit unstaged changes
       --no-fetch       Do not invoke git-fetch automatically
-  -h, --help           Print help
+  -h, --help             Print help
 ```
 
 git-dah will automatically and repeatedly invoke git commands until stop in following rule:
@@ -145,11 +145,12 @@ Arguments:
   [BRANCHES]...  Select branches with specified prefixes, or select all if unset
 
 Options:
-      --remote         Select origin remote-tracking branches instead of local branches
-  -d, --delete         Perform deletion of selected branches
-      --push           Combined with --delete, perform deletion on remote repository instead
-      --since <SINCE>  Select local branch with commit times older than the specified relative time
-  -h, --help           Print help
+      --remote           Select origin remote-tracking branches instead of local branches
+  -d, --delete           Perform deletion of selected branches
+      --delete-worktree  Remove worktrees for selected local branches; combine with --delete to also delete branches
+      --push             Combined with --delete, perform deletion on remote repository instead
+      --since <SINCE>    Select local branch with commit times older than the specified relative time
+  -h, --help             Print help
 ```
 
 `git-stale` always ignores the current `HEAD` branch. It also ignores branches matched by `dah.protectedbranch`, using the same `:`-separated glob patterns as `git-dah`.
@@ -160,6 +161,8 @@ git config --global dah.protectedbranch "develop:release:release/*"
 
 Without `--since`, `git-stale` lists local branches that do not have an upstream branch.
 With `--since`, it selects local branches whose tip commit is older than the specified relative time.
+
+`--delete-worktree` removes linked worktrees for the selected local branches, keeping the branches unless `--delete` is also given. The current worktree and protected branches are ignored. Worktrees with uncommitted changes, untracked files, or locks are not forcibly removed; a removal failure stops the command before deleting that branch. This option cannot be combined with `--remote` or `--push`.
 
 If `--delete --push` is given in local mode, `git-stale` deletes upstream branches for the selected local branches, while keeping the local branches.
 

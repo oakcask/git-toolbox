@@ -1,6 +1,7 @@
 use chrono::{DateTime, Local};
 use git2::{Branch, BranchType, PushOptions, Repository};
 use log::{info, warn};
+use std::process::Command as ProcessCommand;
 use std::{collections::HashMap, error::Error, io};
 
 use crate::{
@@ -13,6 +14,7 @@ use crate::{
 pub struct Options {
     pub remote: bool,
     pub delete: bool,
+    pub delete_worktree: bool,
     pub push: bool,
     pub since: Option<Reltime>,
     pub branches: Vec<String>,
@@ -24,6 +26,11 @@ pub struct Application {
 
 impl Application {
     pub fn from_options(options: Options) -> Result<Self, Box<dyn Error>> {
+        if options.delete_worktree && (options.remote || options.push) {
+            return Err(usage_error(
+                "--delete-worktree cannot be combined with --remote or --push",
+            ));
+        }
         let repo = Repository::open_from_env()?;
         let config = repo.config()?;
         let configuration = Configuration::new(&config);
@@ -60,8 +67,13 @@ impl Application {
 
             if options.delete && options.push {
                 Command::DeleteUpstream { repo, visitor }
-            } else if options.delete {
-                Command::DeleteLocal { repo, visitor }
+            } else if options.delete || options.delete_worktree {
+                Command::DeleteLocal {
+                    repo,
+                    visitor,
+                    delete_branches: options.delete,
+                    delete_worktrees: options.delete_worktree,
+                }
             } else {
                 Command::ListLocal { repo, visitor }
             }
@@ -83,6 +95,8 @@ enum Command {
     DeleteLocal {
         repo: Repository,
         visitor: LocalBranchVisitor,
+        delete_branches: bool,
+        delete_worktrees: bool,
     },
     ListLocal {
         repo: Repository,
@@ -138,17 +152,25 @@ impl Command {
 
                 Ok(())
             }
-            Self::DeleteLocal { repo, visitor } => {
-                visitor.for_each_branches(&repo, (), |_, mut branch| {
-                    if let Ok(branch_name) = branch.get().name() {
-                        let branch_name = branch_name.to_owned();
+            Self::DeleteLocal {
+                repo,
+                visitor,
+                delete_branches,
+                delete_worktrees,
+            } => visitor.for_each_branches(&repo, (), |_, mut branch| {
+                if let Ok(branch_name) = branch.get().name() {
+                    let branch_name = branch_name.to_owned();
+                    if delete_worktrees {
+                        remove_branch_worktrees(&repo, &branch_name)?;
+                    }
+                    if delete_branches {
                         if let Err(error) = branch.delete() {
                             warn!("failed to remove branch '{branch_name}': {error}");
                         }
                     }
-                    Ok(())
-                })
-            }
+                }
+                Ok(())
+            }),
             Self::ListLocal { repo, visitor } => {
                 visitor.for_each_branches(&repo, (), |_, branch| {
                     println!("{}", branch.get().name().unwrap());
@@ -181,6 +203,34 @@ impl Command {
             }
         }
     }
+}
+
+fn remove_branch_worktrees(repo: &Repository, branch_name: &str) -> Result<(), Box<dyn Error>> {
+    for name in repo.worktrees()?.iter() {
+        let name = name?.ok_or_else(|| io::Error::other("worktree name is not valid UTF-8"))?;
+        let worktree = repo.find_worktree(name)?;
+        let worktree_repo = Repository::open(worktree.path())?;
+        if worktree_repo.path() == repo.path() || worktree_repo.head_detached()? {
+            continue;
+        }
+        if worktree_repo.head()?.name()? != branch_name {
+            continue;
+        }
+        let output = ProcessCommand::new("git")
+            .arg("--git-dir")
+            .arg(repo.path())
+            .args(["worktree", "remove", "--"])
+            .arg(worktree.path())
+            .output()?;
+        if !output.status.success() {
+            return Err(io::Error::other(format!(
+                "failed to remove worktree for branch '{branch_name}': {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            ))
+            .into());
+        }
+    }
+    Ok(())
 }
 
 fn push_refspecs(
@@ -738,6 +788,7 @@ mod tests {
             app(Options {
                 remote: true,
                 delete: false,
+                delete_worktree: false,
                 push: false,
                 since: None,
                 branches: Vec::new(),
@@ -761,6 +812,7 @@ mod tests {
             app(Options {
                 remote: true,
                 delete: true,
+                delete_worktree: false,
                 push: false,
                 since: Some("3mo".try_into()?),
                 branches: Vec::new(),
@@ -784,6 +836,7 @@ mod tests {
             app(Options {
                 remote: true,
                 delete: false,
+                delete_worktree: false,
                 push: false,
                 since: Some("3mo".try_into()?),
                 branches: Vec::new(),
@@ -806,6 +859,7 @@ mod tests {
             app(Options {
                 remote: false,
                 delete: true,
+                delete_worktree: false,
                 push: false,
                 since: None,
                 branches: Vec::new(),
