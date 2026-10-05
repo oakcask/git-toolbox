@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.11.0](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.10.5...git-toolbox-v2.11.0) (2026-10-05)
+
+
+### Features
+
+* **git-stale:** add `--delete-worktree` option removes linked worktree ([#531](https://github.com/oakcask/git-toolbox/issues/531)) ([aeab01b](https://github.com/oakcask/git-toolbox/commit/aeab01b1804f44682116472341688f11c14cfc94))
+
+
+### Bug Fixes
+
+* **git-whose:** fix panic bug when parsing comment ([#528](https://github.com/oakcask/git-toolbox/issues/528)) ([075b967](https://github.com/oakcask/git-toolbox/commit/075b96712f9c2325f9eb3423e9df0748d7d30228))
+
 ## [2.10.5](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.10.4...git-toolbox-v2.10.5) (2026-09-29)
 
 
