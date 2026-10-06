@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.1](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.11.0...git-toolbox-v2.11.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **git-stale:** keep going if worktree does not exist ([#532](https://github.com/oakcask/git-toolbox/issues/532)) ([ac32b38](https://github.com/oakcask/git-toolbox/commit/ac32b38e6fe911df1c7c5a837e1b1ad5ed447f69))
+
 ## [2.11.0](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.10.5...git-toolbox-v2.11.0) (2026-10-05)
 
 
