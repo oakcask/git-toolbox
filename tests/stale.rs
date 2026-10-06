@@ -630,7 +630,10 @@ fn git_stale_delete_worktree_warns_and_continues_when_worktree_is_missing() {
         assert!(output.status.success(), "{}", stderr_text(&output));
         let stderr = stderr_text(&output);
         assert!(stderr.contains("WARN"), "{stderr}");
-        assert!(stderr.contains("worktree 'missing' does not exist"), "{stderr}");
+        assert!(
+            stderr.contains("worktree 'missing' does not exist"),
+            "{stderr}"
+        );
         assert!(!stderr.contains("ERROR"), "{stderr}");
         assert!(!other.exists());
         let repo = fixture.worktree_repo();
