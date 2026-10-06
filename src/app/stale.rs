@@ -209,6 +209,13 @@ fn remove_branch_worktrees(repo: &Repository, branch_name: &str) -> Result<(), B
     for name in repo.worktrees()?.iter() {
         let name = name?.ok_or_else(|| io::Error::other("worktree name is not valid UTF-8"))?;
         let worktree = repo.find_worktree(name)?;
+        if !worktree.path().try_exists()? {
+            warn!(
+                "worktree '{name}' does not exist at '{}'; skipping",
+                worktree.path().display()
+            );
+            continue;
+        }
         let worktree_repo = Repository::open(worktree.path())?;
         if worktree_repo.path() == repo.path() || worktree_repo.head_detached()? {
             continue;

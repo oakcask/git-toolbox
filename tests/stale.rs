@@ -610,6 +610,42 @@ fn git_stale_delete_worktree_and_branch() {
 }
 
 #[test]
+fn git_stale_delete_worktree_warns_and_continues_when_worktree_is_missing() {
+    for delete_branches in [false, true] {
+        let fixture = StaleFixture::new();
+        let missing = add_linked_worktree(&fixture, "missing", "feature/old");
+        let other = add_linked_worktree(&fixture, "other", "topic/local-only");
+        fs::remove_dir_all(&missing).unwrap();
+
+        let mut command = Command::new(git_stale_exe());
+        command
+            .current_dir(&fixture.worktree_root)
+            .env("RUST_LOG", "warn")
+            .args(["--since", "3mo", "--delete-worktree"]);
+        if delete_branches {
+            command.arg("--delete");
+        }
+        let output = command.output().unwrap();
+
+        assert!(output.status.success(), "{}", stderr_text(&output));
+        let stderr = stderr_text(&output);
+        assert!(stderr.contains("WARN"), "{stderr}");
+        assert!(
+            stderr.contains("worktree 'missing' does not exist"),
+            "{stderr}"
+        );
+        assert!(!stderr.contains("ERROR"), "{stderr}");
+        assert!(!other.exists());
+        let repo = fixture.worktree_repo();
+        assert!(repo.find_worktree("other").is_err());
+        assert_eq!(
+            local_branch_exists(&repo, "topic/local-only"),
+            !delete_branches
+        );
+    }
+}
+
+#[test]
 fn git_stale_delete_worktree_preserves_dirty_or_locked_worktrees_and_branches() {
     for state in ["modified", "untracked", "locked"] {
         let fixture = StaleFixture::new();
