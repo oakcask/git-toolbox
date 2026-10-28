@@ -1,6 +1,6 @@
 use clap::Parser;
 use git_toolbox::{
-    app::stale::{Application, Options},
+    app::stale::{Application, Options, WorktreeDeleteMode},
     reltime::Reltime,
 };
 use log::error;
@@ -20,10 +20,15 @@ struct Cli {
     delete: bool,
     #[arg(
         long,
+        value_enum,
+        value_name = "MODE",
+        num_args = 0..=1,
+        default_missing_value = "safe",
+        require_equals = true,
         conflicts_with_all = ["remote", "push"],
-        help = "Remove worktrees for selected local branches; combine with --delete to also delete branches"
+        help = "Remove worktrees for selected local branches (default: safe); force discards uncommitted changes and untracked files; combine with --delete to also delete branches"
     )]
-    delete_worktree: bool,
+    delete_worktree: Option<WorktreeDeleteMode>,
     #[arg(
         long,
         help = "Combined with --delete, perform deletion on remote repository instead"

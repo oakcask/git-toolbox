@@ -145,12 +145,12 @@ Arguments:
   [BRANCHES]...  Select branches with specified prefixes, or select all if unset
 
 Options:
-      --remote           Select origin remote-tracking branches instead of local branches
-  -d, --delete           Perform deletion of selected branches
-      --delete-worktree  Remove worktrees for selected local branches; combine with --delete to also delete branches
-      --push             Combined with --delete, perform deletion on remote repository instead
-      --since <SINCE>    Select local branch with commit times older than the specified relative time
-  -h, --help             Print help
+      --remote                    Select origin remote-tracking branches instead of local branches
+  -d, --delete                    Perform deletion of selected branches
+      --delete-worktree[=<MODE>]  Remove worktrees for selected local branches (default: safe); force discards uncommitted changes and untracked files; combine with --delete to also delete branches [possible values: safe, force]
+      --push                      Combined with --delete, perform deletion on remote repository instead
+      --since <SINCE>             Select local branch with commit times older than the specified relative time
+  -h, --help                      Print help (see more with '--help')
 ```
 
 `git-stale` always ignores the current `HEAD` branch. It also ignores branches matched by `dah.protectedbranch`, using the same `:`-separated glob patterns as `git-dah`.
@@ -162,8 +162,6 @@ git config --global dah.protectedbranch "develop:release:release/*"
 Without `--since`, `git-stale` lists local branches that do not have an upstream branch.
 With `--since`, it selects local branches whose tip commit is older than the specified relative time.
 
-`--delete-worktree` removes linked worktrees for the selected local branches, keeping the branches unless `--delete` is also given. The current worktree and protected branches are ignored. Worktrees with uncommitted changes, untracked files, or locks are not forcibly removed; a removal failure stops the command before deleting that branch. This option cannot be combined with `--remote` or `--push`.
-
 If `--delete --push` is given in local mode, `git-stale` deletes upstream branches for the selected local branches, while keeping the local branches.
 
 If `--remote` is given, `git-stale` switches to `origin` remote-tracking branches instead of local branches.
@@ -174,6 +172,19 @@ In this mode:
 * `origin/HEAD`, the configured default branch, and branches matched by `dah.protectedbranch` are ignored.
 * Prefix filters still use the short branch name, so `feature/` matches `origin/feature/foo`, but `origin/feature/` does not.
 * `--delete` requires `--push`, and removes matching branches from `origin`.
+
+#### Removing Worktrees
+
+`--delete-worktree` removes linked worktrees for the selected local branches, keeping the branches unless `--delete` is also given. With no value, it defaults to `safe`, which leaves worktrees with uncommitted changes or untracked files intact. `--delete-worktree=safe` explicitly selects the same behavior.
+
+`--delete-worktree=force` skips the dirty check and discards uncommitted changes and untracked files. A mode value must be attached with `=`; a space-separated word remains a branch prefix.
+
+In both modes, the current worktree and protected branches are ignored, and worktrees with locks or submodules are not removed. A removal failure emits a warning and preserves that branch, then processing continues with the remaining worktrees and branches. This option cannot be combined with `--remote` or `--push`.
+
+```sh
+# Discard local changes in selected worktrees and delete their branches
+git stale --since 3mo --delete-worktree=force --delete feature/
+```
 
 #### Relative Date Format
 

@@ -610,6 +610,24 @@ fn git_stale_delete_worktree_and_branch() {
 }
 
 #[test]
+fn git_stale_delete_worktree_does_not_require_git_executable() {
+    let fixture = StaleFixture::new();
+    let path = add_linked_worktree(&fixture, "old", "feature/old");
+    let empty_path = TempDir::new().unwrap();
+    let output = Command::new(git_stale_exe())
+        .current_dir(&fixture.worktree_root)
+        .env("PATH", empty_path.path())
+        .args(["--since", "3mo", "-d", "--delete-worktree", "feature/old"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", stderr_text(&output));
+    assert!(!path.exists());
+    let repo = fixture.worktree_repo();
+    assert!(repo.find_worktree("old").is_err());
+    assert!(!local_branch_exists(&repo, "feature/old"));
+}
+
+#[test]
 fn git_stale_delete_worktree_warns_and_continues_when_worktree_is_missing() {
     for delete_branches in [false, true] {
         let fixture = StaleFixture::new();
@@ -646,59 +664,222 @@ fn git_stale_delete_worktree_warns_and_continues_when_worktree_is_missing() {
 }
 
 #[test]
-fn git_stale_delete_worktree_preserves_dirty_or_locked_worktrees_and_branches() {
-    for state in ["modified", "untracked", "locked"] {
-        let fixture = StaleFixture::new();
-        let path = add_linked_worktree(&fixture, "old", "feature/old");
-        match state {
-            "modified" => {
-                let tracked = Repository::open(&path)
-                    .unwrap()
-                    .index()
-                    .unwrap()
-                    .get(0)
-                    .unwrap()
-                    .path;
-                fs::write(path.join(OsString::from_vec(tracked)), "changed").unwrap();
+fn git_stale_delete_worktree_modes_handle_dirty_and_protected_worktrees() {
+    for mode in [
+        "--delete-worktree",
+        "--delete-worktree=safe",
+        "--delete-worktree=force",
+    ] {
+        for delete_branches in [false, true] {
+            for state in [
+                "modified",
+                "staged",
+                "deleted",
+                "untracked",
+                "locked",
+                "invalid-index",
+                "submodule",
+            ] {
+                let fixture = StaleFixture::new();
+                let path = add_linked_worktree(&fixture, "old", "feature/old");
+                let other = add_linked_worktree(&fixture, "other", "topic/local-only");
+                match state {
+                    "modified" | "staged" | "deleted" => {
+                        let repo = Repository::open(&path).unwrap();
+                        let tracked =
+                            OsString::from_vec(repo.index().unwrap().get(0).unwrap().path);
+                        if state == "deleted" {
+                            fs::remove_file(path.join(&tracked)).unwrap();
+                        } else {
+                            fs::write(path.join(&tracked), "changed").unwrap();
+                        }
+                        if state == "staged" {
+                            let mut index = repo.index().unwrap();
+                            index.add_path(std::path::Path::new(&tracked)).unwrap();
+                            index.write().unwrap();
+                        }
+                    }
+                    "untracked" => {
+                        fs::create_dir(path.join("nested")).unwrap();
+                        fs::write(path.join("nested/untracked"), "keep me").unwrap();
+                    }
+                    "locked" => git_command(
+                        &fixture.worktree_repo(),
+                        &["worktree", "lock", path.to_str().unwrap()],
+                    ),
+                    "invalid-index" => {
+                        let repo = Repository::open(&path).unwrap();
+                        fs::write(repo.path().join("index"), "invalid index").unwrap();
+                    }
+                    "submodule" => {
+                        let repo = Repository::open(&path).unwrap();
+                        git_command(
+                            &repo,
+                            &[
+                                "-c",
+                                "protocol.file.allow=always",
+                                "submodule",
+                                "add",
+                                "-b",
+                                "main",
+                                &file_url(&fixture.origin_root),
+                                "submodule",
+                            ],
+                        );
+                        let contents = fs::read(path.join(".gitmodules")).unwrap();
+                        let old = Time::new(
+                            (chrono::Local::now() - chrono::Duration::days(150)).timestamp(),
+                            0,
+                        );
+                        git_commit_at(&repo, ".gitmodules", &contents, "add submodule", old);
+                        assert!(repo.statuses(None).unwrap().is_empty());
+                    }
+                    _ => unreachable!(),
+                }
+                let mut command = Command::new(git_stale_exe());
+                command
+                    .current_dir(&fixture.worktree_root)
+                    .env("RUST_LOG", "warn")
+                    .args(["--since", "3mo", mode]);
+                if delete_branches {
+                    command.arg("--delete");
+                }
+                let output = command.output().unwrap();
+                assert!(
+                    output.status.success(),
+                    "state={state}: {}",
+                    stderr_text(&output)
+                );
+                let removed = mode == "--delete-worktree=force"
+                    && matches!(state, "modified" | "staged" | "deleted" | "untracked");
+                let stderr = stderr_text(&output);
+                if !removed {
+                    assert!(stderr.contains("WARN"), "{stderr}");
+                    assert!(
+                        stderr.contains("failed to remove worktree 'old'"),
+                        "{stderr}"
+                    );
+                }
+                assert!(!stderr.contains("--force"), "{stderr}");
+                assert_eq!(path.exists(), !removed, "mode={mode}, state={state}");
+                let repo = fixture.worktree_repo();
+                assert_eq!(
+                    local_branch_exists(&repo, "feature/old"),
+                    !(removed && delete_branches)
+                );
+                assert_eq!(repo.find_worktree("old").is_ok(), !removed);
+                if state == "submodule" {
+                    assert!(path.join("submodule/.git").exists());
+                }
+                assert!(!other.exists());
+                assert!(repo.find_worktree("other").is_err());
+                assert_eq!(
+                    local_branch_exists(&repo, "topic/local-only"),
+                    !delete_branches
+                );
             }
-            "untracked" => fs::write(path.join("untracked"), "keep me").unwrap(),
-            "locked" => git_command(
-                &fixture.worktree_repo(),
-                &["worktree", "lock", path.to_str().unwrap()],
-            ),
-            _ => unreachable!(),
         }
-        let output = fixture.run(&["--since", "3mo", "-d", "--delete-worktree", "feature/old"]);
-        assert!(!output.status.success(), "state={state}");
-        assert!(stderr_text(&output).contains("failed to remove worktree"));
-        assert!(path.exists());
-        assert!(local_branch_exists(&fixture.worktree_repo(), "feature/old"));
-        assert!(fixture.worktree_repo().find_worktree("old").is_ok());
     }
 }
 
 #[test]
 fn git_stale_delete_worktree_ignores_current_linked_worktree() {
-    let fixture = StaleFixture::new();
-    let current = add_linked_worktree(&fixture, "current", "feature/old");
-    let other = add_linked_worktree(&fixture, "other", "topic/local-only");
-    let output = Command::new(git_stale_exe())
-        .current_dir(&current)
-        .args(["--since", "3mo", "-d", "--delete-worktree"])
-        .output()
-        .unwrap();
-    assert!(output.status.success(), "{}", stderr_text(&output));
-    assert!(current.exists());
-    assert!(!other.exists());
-    assert!(local_branch_exists(&fixture.worktree_repo(), "feature/old"));
+    for mode in ["--delete-worktree", "--delete-worktree=force"] {
+        let fixture = StaleFixture::new();
+        let current = add_linked_worktree(&fixture, "current", "feature/old");
+        let other = add_linked_worktree(&fixture, "other", "topic/local-only");
+        let output = Command::new(git_stale_exe())
+            .current_dir(&current)
+            .args(["--since", "3mo", "-d", mode])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{}", stderr_text(&output));
+        assert!(current.exists());
+        assert!(!other.exists());
+        assert!(local_branch_exists(&fixture.worktree_repo(), "feature/old"));
+    }
 }
 
 #[test]
 fn git_stale_delete_worktree_rejects_remote_options() {
     let fixture = StaleFixture::new();
-    for option in ["--remote", "--push"] {
-        let output = fixture.run(&["--delete-worktree", option]);
-        assert!(!output.status.success());
-        assert!(stderr_text(&output).contains("cannot be used with"));
+    for mode in [
+        "--delete-worktree",
+        "--delete-worktree=safe",
+        "--delete-worktree=force",
+    ] {
+        for option in ["--remote", "--push"] {
+            let output = fixture.run(&[mode, option]);
+            assert!(!output.status.success());
+            assert!(stderr_text(&output).contains("cannot be used with"));
+        }
     }
+}
+
+#[test]
+fn git_stale_delete_worktree_treats_space_separated_mode_as_branch_prefix() {
+    let fixture = StaleFixture::new();
+    let repo = fixture.worktree_repo();
+    let commit = repo
+        .find_branch("feature/old", BranchType::Local)
+        .unwrap()
+        .get()
+        .peel_to_commit()
+        .unwrap();
+    repo.branch("force", &commit, false).unwrap();
+    let path = add_linked_worktree(&fixture, "force", "force");
+    let other = add_linked_worktree(&fixture, "old", "feature/old");
+    fs::write(path.join("untracked"), "keep me").unwrap();
+    let output = fixture.run(&["--since", "3mo", "--delete-worktree", "force"]);
+    assert!(output.status.success(), "{}", stderr_text(&output));
+    assert!(path.join("untracked").exists());
+    assert!(other.exists());
+    fs::remove_file(path.join("untracked")).unwrap();
+    let output = fixture.run(&["--since", "3mo", "--delete-worktree", "force"]);
+    assert!(output.status.success(), "{}", stderr_text(&output));
+    assert!(!path.exists());
+    assert!(other.exists());
+}
+
+#[test]
+fn git_stale_delete_worktree_rejects_invalid_mode() {
+    let fixture = StaleFixture::new();
+    for arg in ["--delete-worktree=typo", "--delete-worktree="] {
+        let output = fixture.run(&[arg]);
+        assert!(!output.status.success());
+        let stderr = stderr_text(&output);
+        assert!(stderr.contains("safe"), "{stderr}");
+        assert!(stderr.contains("force"), "{stderr}");
+    }
+}
+
+#[test]
+fn git_stale_delete_worktree_force_respects_branch_selection() {
+    let fixture = StaleFixture::new();
+    let old = add_linked_worktree(&fixture, "old", "feature/old");
+    let protected = add_linked_worktree(&fixture, "protected", "develop");
+    let other = add_linked_worktree(&fixture, "other", "topic/local-only");
+    fs::write(old.join("untracked"), "discard me").unwrap();
+    fs::write(protected.join("untracked"), "keep me").unwrap();
+    let output = fixture.run(&[
+        "--since",
+        "3mo",
+        "--delete-worktree=force",
+        "--delete",
+        "feature/",
+    ]);
+    assert!(output.status.success(), "{}", stderr_text(&output));
+    assert!(!old.exists());
+    assert!(protected.exists());
+    assert!(other.exists());
+    let output = fixture.run(&[
+        "--since",
+        "3mo",
+        "--delete-worktree=force",
+        "--delete",
+        "develop",
+    ]);
+    assert!(output.status.success(), "{}", stderr_text(&output));
+    assert!(protected.exists());
+    assert!(local_branch_exists(&fixture.worktree_repo(), "develop"));
 }
