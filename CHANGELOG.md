@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.0](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.11.1...git-toolbox-v2.12.0) (2026-10-28)
+
+
+### Features
+
+* **git-stale:** `--delete-worktree=force` to force removing dirty worktree ([#542](https://github.com/oakcask/git-toolbox/issues/542)) ([b7b39cb](https://github.com/oakcask/git-toolbox/commit/b7b39cb848261bdbb50c9900f2a89f0d0974952f))
+
 ## [2.11.1](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.11.0...git-toolbox-v2.11.1) (2026-10-06)
 
 
