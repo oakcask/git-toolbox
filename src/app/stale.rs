@@ -1,7 +1,6 @@
 use chrono::{DateTime, Local};
-use git2::{Branch, BranchType, PushOptions, Repository};
+use git2::{Branch, BranchType, PushOptions, Repository, StatusOptions, WorktreePruneOptions};
 use log::{info, warn};
-use std::process::Command as ProcessCommand;
 use std::{collections::HashMap, error::Error, io};
 
 use crate::{
@@ -11,10 +10,18 @@ use crate::{
     reltime::Reltime,
 };
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum WorktreeDeleteMode {
+    /// Remove only clean worktrees.
+    Safe,
+    /// Skip the dirty check, discarding uncommitted changes and untracked files.
+    Force,
+}
+
 pub struct Options {
     pub remote: bool,
     pub delete: bool,
-    pub delete_worktree: bool,
+    pub delete_worktree: Option<WorktreeDeleteMode>,
     pub push: bool,
     pub since: Option<Reltime>,
     pub branches: Vec<String>,
@@ -26,7 +33,7 @@ pub struct Application {
 
 impl Application {
     pub fn from_options(options: Options) -> Result<Self, Box<dyn Error>> {
-        if options.delete_worktree && (options.remote || options.push) {
+        if options.delete_worktree.is_some() && (options.remote || options.push) {
             return Err(usage_error(
                 "--delete-worktree cannot be combined with --remote or --push",
             ));
@@ -67,7 +74,7 @@ impl Application {
 
             if options.delete && options.push {
                 Command::DeleteUpstream { repo, visitor }
-            } else if options.delete || options.delete_worktree {
+            } else if options.delete || options.delete_worktree.is_some() {
                 Command::DeleteLocal {
                     repo,
                     visitor,
@@ -96,7 +103,7 @@ enum Command {
         repo: Repository,
         visitor: LocalBranchVisitor,
         delete_branches: bool,
-        delete_worktrees: bool,
+        delete_worktrees: Option<WorktreeDeleteMode>,
     },
     ListLocal {
         repo: Repository,
@@ -160,8 +167,15 @@ impl Command {
             } => visitor.for_each_branches(&repo, (), |_, mut branch| {
                 if let Ok(branch_name) = branch.get().name() {
                     let branch_name = branch_name.to_owned();
-                    if delete_worktrees {
-                        remove_branch_worktrees(&repo, &branch_name)?;
+                    if let Some(mode) = delete_worktrees {
+                        match remove_branch_worktrees(&repo, &branch_name, mode) {
+                            Ok(true) => {}
+                            Ok(false) => return Ok(()),
+                            Err(error) => {
+                                warn!("failed to remove worktrees for branch '{branch_name}': {error}");
+                                return Ok(());
+                            }
+                        }
                     }
                     if delete_branches {
                         if let Err(error) = branch.delete() {
@@ -205,38 +219,68 @@ impl Command {
     }
 }
 
-fn remove_branch_worktrees(repo: &Repository, branch_name: &str) -> Result<(), Box<dyn Error>> {
+fn remove_branch_worktrees(
+    repo: &Repository,
+    branch_name: &str,
+    mode: WorktreeDeleteMode,
+) -> Result<bool, Box<dyn Error>> {
+    let mut success = true;
     for name in repo.worktrees()?.iter() {
         let name = name?.ok_or_else(|| io::Error::other("worktree name is not valid UTF-8"))?;
-        let worktree = repo.find_worktree(name)?;
-        if !worktree.path().try_exists()? {
-            warn!(
-                "worktree '{name}' does not exist at '{}'; skipping",
-                worktree.path().display()
-            );
-            continue;
-        }
-        let worktree_repo = Repository::open(worktree.path())?;
-        if worktree_repo.path() == repo.path() || worktree_repo.head_detached()? {
-            continue;
-        }
-        if worktree_repo.head()?.name()? != branch_name {
-            continue;
-        }
-        let output = ProcessCommand::new("git")
-            .arg("--git-dir")
-            .arg(repo.path())
-            .args(["worktree", "remove", "--"])
-            .arg(worktree.path())
-            .output()?;
-        if !output.status.success() {
-            return Err(io::Error::other(format!(
-                "failed to remove worktree for branch '{branch_name}': {}",
-                String::from_utf8_lossy(&output.stderr).trim()
-            ))
-            .into());
+        if let Err(error) = remove_branch_worktree(repo, name, branch_name, mode) {
+            warn!("failed to remove worktree '{name}' for branch '{branch_name}': {error}");
+            success = false;
         }
     }
+    Ok(success)
+}
+
+fn remove_branch_worktree(
+    repo: &Repository,
+    name: &str,
+    branch_name: &str,
+    mode: WorktreeDeleteMode,
+) -> Result<(), Box<dyn Error>> {
+    let worktree = repo.find_worktree(name)?;
+    if !worktree.path().try_exists()? {
+        warn!(
+            "worktree '{name}' does not exist at '{}'; skipping",
+            worktree.path().display()
+        );
+        return Ok(());
+    }
+    let worktree_repo = Repository::open(worktree.path())?;
+    if worktree_repo.path() == repo.path() || worktree_repo.head_detached()? {
+        return Ok(());
+    }
+    if worktree_repo.head()?.name()? != branch_name {
+        return Ok(());
+    }
+    worktree.validate()?;
+    if mode == WorktreeDeleteMode::Safe {
+        let mut status_options = StatusOptions::new();
+        status_options
+            .include_untracked(true)
+            .recurse_untracked_dirs(true)
+            .include_unreadable(true)
+            .exclude_submodules(false);
+        if !worktree_repo
+            .statuses(Some(&mut status_options))?
+            .is_empty()
+        {
+            return Err(
+                io::Error::other("worktree has uncommitted changes or untracked files").into(),
+            );
+        }
+    }
+    // Pruning does not check for local changes or protect submodule repositories.
+    if !worktree_repo.submodules()?.is_empty() {
+        return Err(io::Error::other("worktree contains submodules").into());
+    }
+    drop(worktree_repo);
+    let mut prune_options = WorktreePruneOptions::new();
+    prune_options.valid(true).working_tree(true);
+    worktree.prune(Some(&mut prune_options))?;
     Ok(())
 }
 
@@ -795,7 +839,7 @@ mod tests {
             app(Options {
                 remote: true,
                 delete: false,
-                delete_worktree: false,
+                delete_worktree: None,
                 push: false,
                 since: None,
                 branches: Vec::new(),
@@ -819,7 +863,7 @@ mod tests {
             app(Options {
                 remote: true,
                 delete: true,
-                delete_worktree: false,
+                delete_worktree: None,
                 push: false,
                 since: Some("3mo".try_into()?),
                 branches: Vec::new(),
@@ -843,7 +887,7 @@ mod tests {
             app(Options {
                 remote: true,
                 delete: false,
-                delete_worktree: false,
+                delete_worktree: None,
                 push: false,
                 since: Some("3mo".try_into()?),
                 branches: Vec::new(),
@@ -866,7 +910,7 @@ mod tests {
             app(Options {
                 remote: false,
                 delete: true,
-                delete_worktree: false,
+                delete_worktree: None,
                 push: false,
                 since: None,
                 branches: Vec::new(),
