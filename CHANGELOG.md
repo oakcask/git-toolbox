@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.1](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.12.0...git-toolbox-v2.12.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate log to 0.4.35 ([#545](https://github.com/oakcask/git-toolbox/issues/545)) ([d72bebc](https://github.com/oakcask/git-toolbox/commit/d72bebc6afd457ccaca1e069cf871f1cdc0427d5))
+
 ## [2.12.0](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.11.1...git-toolbox-v2.12.0) (2026-10-28)
 
 
