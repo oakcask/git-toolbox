@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.12.1](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.12.0...git-toolbox-v2.12.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate clap to 4.6.8 ([#554](https://github.com/oakcask/git-toolbox/issues/554)) ([d7e3ec2](https://github.com/oakcask/git-toolbox/commit/d7e3ec29b4601f40902440a3282498a59cec3c37))
+* **deps:** update rust crate clap to 4.6.9 ([#557](https://github.com/oakcask/git-toolbox/issues/557)) ([16eb2ad](https://github.com/oakcask/git-toolbox/commit/16eb2ad0eca63a5c43345cd789be4d7aa5d8e741))
+* **deps:** update rust crate env_logger to 0.11.12 ([#558](https://github.com/oakcask/git-toolbox/issues/558)) ([ce58ae2](https://github.com/oakcask/git-toolbox/commit/ce58ae2fd1884ed548a66b2bdb29795ec4edb0a4))
+* **deps:** update rust crate log to 0.4.35 ([#545](https://github.com/oakcask/git-toolbox/issues/545)) ([d72bebc](https://github.com/oakcask/git-toolbox/commit/d72bebc6afd457ccaca1e069cf871f1cdc0427d5))
+* **deps:** update rust crate regex to 1.13.2 ([#556](https://github.com/oakcask/git-toolbox/issues/556)) ([d6e2058](https://github.com/oakcask/git-toolbox/commit/d6e2058f2f5d427662ef568bd21dad696491e42b))
+
 ## [2.12.0](https://github.com/oakcask/git-toolbox/compare/git-toolbox-v2.11.1...git-toolbox-v2.12.0) (2026-10-28)
 
 
